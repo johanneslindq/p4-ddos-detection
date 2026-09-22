@@ -2,16 +2,30 @@ import argparse
 import csv
 import math
 import os
+import subprocess
+import time
 
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
-from scapy.all import PcapReader
+from scapy.all import TCP, PcapReader, conf, sendp
 
 
 # CIC-DDoS2019 was recorded in New Brunswick.
 # On 1 Dec 2018 the dataset's local time was UTC-4.
 DATASET_UTC_OFFSET_HOURS = -4
 
-def main(dataset: str, traffic_answer_sheet: str, window_size: float = 1.0):
+def main(
+    dataset: str,
+    traffic_answer_sheet: str,
+    p4_program: str,
+    window_size: float = 1.0
+):
+
+    # ------------------------------------------------------------
+    # Initialize P4 program
+    # ------------------------------------------------------------
+    initialize_P4_program(p4_program)
+
 
     # ------------------------------------------------------------
     # Load ground-truth SYN attack periods from the CSV
@@ -42,16 +56,17 @@ def main(dataset: str, traffic_answer_sheet: str, window_size: float = 1.0):
 
     window_number = 0
     total_packets = 0
+    total_packet_types = dict.fromkeys(("TCP", "Non-TCP"), 0)
 
     attack_windows = 0
     non_attack_windows = 0
 
     # P4 detection statistics:
     #
-    # true_positives = 0
-    # false_positives = 0
-    # true_negatives = 0
-    # false_negatives = 0
+    true_positives = 0
+    false_positives = 0
+    true_negatives = 0
+    false_negatives = 0
 
     # ------------------------------------------------------------
     # Process PCAP one time window at a time
@@ -94,26 +109,23 @@ def main(dataset: str, traffic_answer_sheet: str, window_size: float = 1.0):
         # P4 detector
         # --------------------------------------------------------
 
-        # Later:
-        #
-        # 1. Send packets in this window through BMv2
+        # 1. Send only TCP packets in this window through BMv2
+        
+        send_packets_to_p4(packets)
+        window_packet_types = count_packet_types(packets)
+        for protocol, count in window_packet_types.items():
+            total_packet_types[protocol] += count
+
         # 2. Determine whether P4 detected a SYN flood
-        #
-        # p4_detected_attack = ...
-        #
-        # Then compare:
-        #
-        # if syn_attack_present and p4_detected_attack:
-        #     true_positives += 1
-        #
-        # elif not syn_attack_present and p4_detected_attack:
-        #     false_positives += 1
-        #
-        # elif syn_attack_present and not p4_detected_attack:
-        #     false_negatives += 1
-        #
-        # else:
-        #     true_negatives += 1
+        detected_attack = p4_detected_attack()
+        if detected_attack and syn_attack_present:
+            true_positives += 1
+        elif detected_attack and not syn_attack_present:
+            false_positives += 1
+        elif not detected_attack and syn_attack_present:
+            false_negatives += 1
+        else:
+            true_negatives += 1
 
         # --------------------------------------------------------
         # Display status
@@ -125,13 +137,36 @@ def main(dataset: str, traffic_answer_sheet: str, window_size: float = 1.0):
         print(f"Window:                  {window_number}")
         print(f"Dataset time:            {dataset_window_start}")
         print()
-        print(f"Packets this window:     {len(packets)}")
-        print(f"Total packets processed: {total_packets}")
+        print("PCAP packets (TCP replayed; non-TCP skipped):")
+        print(f"{'Type':<12}{'This window':>14}{'Total':>14}")
+        print(f"{'All packets':<12}{len(packets):>14,}{total_packets:>14,}")
+        for protocol, count in window_packet_types.items():
+            print(f"{protocol:<12}{count:>14,}{total_packet_types[protocol]:>14,}")
+        print("Replay counts do not confirm receipt by BMv2.")
         print()
         print(f"Attack windows:          {attack_windows}")
         print(f"Non-attack windows:      {non_attack_windows}")
         print()
+        print(f"True P4 positives:       {true_positives}")
+        print(f"False P4 positives:      {false_positives}")
+        print(f"True P4 negatives:       {true_negatives}")
+        print(f"False P4 negatives:      {false_negatives}")
+        print()
         print(f"SYN attack this window:  {syn_attack_present}")
+
+
+def count_packet_types(packets):
+    """Count packets with a decoded TCP layer and all remaining packets.
+
+    TCP includes IPv4 and IPv6. Packets without a decoded TCP layer,
+    including undecoded fragments, are grouped as Non-TCP and skipped.
+    These are PCAP classifications, independent of the P4 parser.
+    """
+    counts = dict.fromkeys(("TCP", "Non-TCP"), 0)
+    for packet in packets:
+        protocol = "TCP" if packet.haslayer(TCP) else "Non-TCP"
+        counts[protocol] += 1
+    return counts
 
 
 def read_aligned_windows(pcap_file: str, window_size: float = 1.0):
@@ -377,8 +412,112 @@ def print_dataset_info(dataset: str):
     else:
         print("Unknown dataset. No information available.")
 
+def initialize_P4_program(path_to_p4_program: str):
+    p4_path = Path(path_to_p4_program)
+    if not p4_path.exists():
+        raise FileNotFoundError(f"P4 program not found: {path_to_p4_program}")
+    output_json_path = p4_path.with_suffix('.json')
+
+    # Make sure simple_switch is not already running
+    subprocess.run(["sudo", "pkill", "simple_switch"], check=False)
+
+    # Deleting one end of a veth pair also deletes its peer.
+    subprocess.run(["sudo", "ip", "link", "del", "veth0"], check=False)
+    subprocess.run(["sudo", "ip", "link", "del", "veth2"], check=False)
+
+    # Compile the P4 program
+    print(f"Compiling P4 program: {path_to_p4_program}...")
+    result = subprocess.run(
+        [
+            "p4c-bm2-ss",
+            str(p4_path),
+            "-o",
+            str(output_json_path)
+        ],
+        capture_output=True,
+        text=True
+    )
+
+    if result.returncode != 0:
+        print("P4 compilation failed:")
+        print(result.stderr)
+        raise SystemExit(1)
+
+    print(f"P4 compiled successfully: {output_json_path}")
+
+    # Set up a two port setup for the P4 program using simple_switch
+    commands = [
+        ["sudo", "ip", "link", "add", "veth0", "type", "veth", "peer", "name", "veth1"],
+        ["sudo", "ip", "link", "add", "veth2", "type", "veth", "peer", "name", "veth3"],
+
+        # The capture contains frames larger than the default 1500-byte MTU.
+        ["sudo", "ip", "link", "set", "veth0", "mtu", "9000", "up"],
+        ["sudo", "ip", "link", "set", "veth1", "mtu", "9000", "up"],
+        ["sudo", "ip", "link", "set", "veth2", "mtu", "9000", "up"],
+        ["sudo", "ip", "link", "set", "veth3", "mtu", "9000", "up"],
+    ]
+
+    for command in commands:
+        subprocess.run(command, check=True)
+
+    # Recreated interfaces have new indices; discard Scapy's cached values.
+    conf.ifaces.reload()
+
+    # Start the P4 program using simple_switch
+    print("Starting P4 program using simple_switch...")
+    command = [
+        "sudo",
+        "simple_switch",
+        "--thrift-port", "9090",
+        "-i", "1@veth0",
+        "-i", "2@veth2",
+        str(output_json_path)
+    ]
+
+    # Keep the background switch's terminal I/O separate from the status display.
+    log_path = output_json_path.with_suffix('.bmv2.log')
+    with log_path.open("w") as log_file:
+        process = subprocess.Popen(
+            command,
+            stdin=subprocess.DEVNULL,
+            stdout=log_file,
+            stderr=subprocess.STDOUT
+        )
+
+    # Give BMv2 a moment to start
+    time.sleep(1)
+
+    # Check if it immediately crashed
+    if process.poll() is not None:
+        raise RuntimeError(f"BMv2 failed to start; see {log_path}")
+
+    print(f"BMv2 started successfully; logs: {log_path}")
+
+def send_packets_to_p4(packets):
+    """Replay only packets with a decoded TCP layer into BMv2 port 1."""
+    tcp_packets = [packet for packet in packets if packet.haslayer(TCP)]
+    if not tcp_packets:
+        return
+
+    sendp(
+        tcp_packets,
+        iface="veth1",
+        promisc=False,
+        verbose=False
+    )
+
+def p4_detected_attack():
+    #TODO: Implement this function to check if the P4 program detected a SYN flood attack for the current window.
+    # This can probably just look at a counter in the P4 program that increments when a SYN flood is detected.
+    return False  # Placeholder implementation
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark SYN attack detection.")
+    parser.add_argument(
+        "--p4-program", "--p4_program",
+        required=True,
+        help="Path to the P4 program."
+    )
     parser.add_argument(
         "--window-size", "--window_size",
         type=float,
@@ -389,8 +528,10 @@ if __name__ == "__main__":
     if not math.isfinite(args.window_size) or args.window_size <= 0:
         parser.error("--window-size must be a positive, finite number")
 
+    dataset_dir = Path(__file__).resolve().parent / "datasets"
     main(
-        "datasets/syn-flood-cicddos/SAT-01-12-2018_0620.pcap",
-        "datasets/Syn-day-1.csv",
+        str(dataset_dir / "syn-flood-cicddos" / "SAT-01-12-2018_0620.pcap"),
+        str(dataset_dir / "Syn-day-1.csv"),
+        p4_program=args.p4_program,
         window_size=args.window_size
     )
