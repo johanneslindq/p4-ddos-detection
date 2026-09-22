@@ -1,3 +1,4 @@
 *.json
 *.pcap
 *.csv
+*.log
