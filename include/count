@@ -1,0 +1,85 @@
+// Configuration
+#define COUNT_BITS 32
+#define COUNT_WIDTH 1024
+
+// Creation
+#define count_register(register_id) register<int<COUNT_BITS>>(COUNT_WIDTH) count_register_##register_id;
+
+/*
+Count hashing:
+res - variable to put the hash output
+use_ipv6 - use ipv6 or ipv4
+seed - seed for the hash function, should be different for all
+*/
+#define get_hash(res, use_ipv6, seed) \
+{ \
+    if(use_ipv6){ \
+        hash(res, HashAlgorithm.crc32, (bit<COUNT_BITS>)0, \
+            {hdr.ipv6.srcAddr, hdr.ipv6.dstAddr, seed}, (bit<COUNT_BITS>)COUNT_WIDTH); \
+    } else { \
+        hash(res, HashAlgorithm.crc32, (bit<COUNT_BITS>)0, \
+            {hdr.ipv4.srcAddr, hdr.ipv4.dstAddr, seed}, (bit<COUNT_BITS>)COUNT_WIDTH); \
+    } \
+}
+
+/*
+Count sign hashing:
+res - variable to put the hash output
+use_ipv6 - use ipv6 or ipv4
+seed - seed for the hash function, should be different for all
+*/
+#define get_sign_hash(res, use_ipv6, seed) \
+{ \
+    if(use_ipv6){ \
+        hash(res, HashAlgorithm.crc32, (bit<1>)0, {hdr.ipv6.srcAddr, hdr.ipv6.dstAddr, seed}, (bit<1>)2); \
+    } else { \
+        hash(res, HashAlgorithm.crc32, (bit<1>)0, {hdr.ipv4.srcAddr, hdr.ipv4.dstAddr, seed}, (bit<1>)2); \
+    } \
+}
+
+/*
+Count update register:
+register_id - id (1,2,3,...) of row
+use_ipv6 - use ipv6 or ipv4
+var - variable for outputting the current count
+*/#define update_count(register_id, use_ipv6, var) \
+{ \
+    bit<COUNT_BITS> hash_res; \
+    bit<2> sign_res; \
+    
+    get_hash(hash_res, use_ipv6, 8w##register_id); \
+    get_sign_hash(sign_res, use_ipv6, seed); \
+    count_register_##register_id.read(var, (bit<COUNT_BITS>)hash_res); \
+    if(sign == 1){ \
+        var = var+1; \
+    } else{ \
+        var = var-1; \
+    } \
+    count_register_##register_id.write((bit<COUNT_BITS>)hash_res, var); \
+}
+
+
+/*
+Count-min main "function":
+use_ipv6 - use ipv6 or ipv4
+count_result - where to store the median (result)
+*/
+#define update_all_count(use_ipv6, count_result) \
+{ \
+    // Count in each register
+    int<COUNT_BITS> var1; \
+    int<COUNT_BITS> var2; \
+    int<COUNT_BITS> var3; \
+    int<COUNT_BITS> var4; \
+
+    // Update and extract values
+    update_count(1, use_ipv6, var1); \
+    update_count(2, use_ipv6, var2); \
+    update_count(3, use_ipv6, var3); \
+    update_count(4, use_ipv6, var4); \
+
+    // Calculate median
+    // ...
+
+    // count_result = median;
+}
