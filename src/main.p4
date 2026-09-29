@@ -2,6 +2,18 @@
 #include <v1model.p4>
 #include "../include/headers-65536.p4"
 #include "../include/countmin.p4"
+#include "../include/hyperloglog.p4"
+
+#define UNIQUE_SOURCES_THRESHOLD  500;
+#define SYN_PER_DESTINATION_THRESHOLD  500;
+
+#define LOG_COUNTS
+
+#define log_current_counts(count_min_value, hyperloglog_value) \
+log_msg("-------------COUNT-MIN COUNT-------------");\
+log_msg("The current SYN count for this destination is: {}", {count_min_value});\
+log_msg("-------------HYPERLOGLOG COUNT-------------");\
+log_msg("The current source count is: {}", {hyperloglog_value});
 
 parser SYNParser(packet_in packet, out headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
     
@@ -39,25 +51,34 @@ parser SYNParser(packet_in packet, out headers hdr, inout metadata meta, inout s
 
 
 control SYNControllerIngress(inout headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
-    create_count_min // Create the registers
+    // Create the sketches
+    create_count_min 
+    hyperloglog_register 
 
     action drop_packet() {
         mark_to_drop(standard_metadata);
     }
 
     apply {
+        bool use_ipv6 = (hdr.ipv6.isValid() && !hdr.ipv4.isValid());
+
         if (hdr.tcp.isValid() && hdr.tcp.syn == 1 && hdr.tcp.ack == 0) {
             bit<COUNT_MIN_BITS> count_min_value = (bit<COUNT_MIN_BITS>)-1; // variable will be filled with current count
-            
+            bit<HYPERLOGLOG_NUM_BITS> hyperloglog_value;
+
             // ipv6 not implemented yet
             if(hdr.ipv4.isValid()){
-                update_all_count_min(count_min_value, !hdr.ipv4.isValid());  
+                update_all_count_min(count_min_value, use_ipv6);  
+                update_hyperloglog(hyperloglog_value, use_ipv6);
             } else {
                 drop_packet();
             }
 
-            log_msg("The current count is: {}", {count_min_value});
-            if(count_min_value > 10000){
+            #ifdef LOG_COUNTS
+            log_current_counts(count_min_value, hyperloglog_value)
+            #endif
+
+            if(hyperloglog_value > UNIQUE_SOURCES_THRESHOLD && count_min_value > SYN_PER_DESTINATION_THRESHOLD){
                 drop_packet();
                 exit;
             }

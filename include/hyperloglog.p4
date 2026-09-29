@@ -31,8 +31,13 @@ seed - seed for the hash function
             {hdr.ipv4.srcAddr, seed}, (bit<HYPERLOGLOG_HASH_BITS>)-1); \
     }
 
+/*
+Finds if all bits > index are 0:
+leading_0s - where to store the output, unchanged if condition is false.
+index - the index to check
+*/
+#define leading_0_else_if(leading_0s, index) else if(value == (bit<HYPERLOGLOG_VALUE_BITS>)value[index:0]){leading_0s=HYPERLOGLOG_VALUE_BITS-index;}
 
-#define leading_0_else_if(index) else if(value == (bit<HYPERLOGLOG_VALUE_BITS>)value[index:0]){leading_0s=HYPERLOGLOG_VALUE_BITS-index;}
 /*
 Find leading 0s + 1:
 res - variable to put the result, should be 0 initially
@@ -60,30 +65,23 @@ leading_0_else_if(14) \
 leading_0_else_if(15) 
 
 /*
-Update the count, can be used with any hash of correct size:
-res - where to store output (the count)
-hash_res - the hash to use, size HYPERLOGLOG_HASH_BITS
-*/
-#define update_hyperloglog_count(res, hash_res) \
-bit<HYPERLOGLOG_INDEX_BITS> index = hash_res[HYPERLOGLOG_INDEX_BITS-1:0]; \
-bit<HYPERLOGLOG_VALUE_BITS> value = hash_res[HYPERLOGLOG_HASH_BITS-1:HYPERLOGLOG_INDEX_BITS]; \
-bit<HYPERLOGLOG_NUM_BITS> leading_0s = 0; \
-find_leading_0(leading_0s, value) \
-hll_register.read(res, index); \
-if(leading_0s > res){ \
-    res = leading_0s; \
-    hll_register.write(index, res); \
-}
-
-/*
 Update sketch:
 res - where to store output (the count)
 use_ipv6 - use ipv6 or not
 */
 #define update_hyperloglog(res, use_ipv6) \
 bit<HYPERLOGLOG_HASH_BITS> hash_res; \
+bit<HYPERLOGLOG_INDEX_BITS> index = hash_res[HYPERLOGLOG_INDEX_BITS-1:0]; \
+bit<HYPERLOGLOG_VALUE_BITS> value = hash_res[HYPERLOGLOG_HASH_BITS-1:HYPERLOGLOG_INDEX_BITS]; \
+bit<HYPERLOGLOG_NUM_BITS> leading_0s = 0; \
+\
 get_hash(hash_res, use_ipv6, HYPERLOGLOG_SEED); \
-update_hyperloglog_count(res, hash_res) 
+find_leading_0(leading_0s, value) \
+hll_register.read(res, index); \
+if(leading_0s > res){ \
+    res = leading_0s; \
+    hll_register.write(index, res); \
+}
 
 
 
