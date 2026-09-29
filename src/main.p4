@@ -7,8 +7,7 @@
 #define UNIQUE_SOURCES_THRESHOLD  500;
 #define SYN_PER_DESTINATION_THRESHOLD  500;
 
-#define LOG_COUNTS
-
+#define ENABLE_LOGGING
 #define log_current_counts(count_min_value, hyperloglog_value) \
 log_msg("-------------COUNT-MIN COUNT-------------");\
 log_msg("The current SYN count for this destination is: {}", {count_min_value});\
@@ -74,7 +73,7 @@ control SYNControllerIngress(inout headers hdr, inout metadata meta, inout stand
                 drop_packet();
             }
 
-            #ifdef LOG_COUNTS
+            #ifdef ENABLE_LOGGING
             log_current_counts(count_min_value, hyperloglog_value)
             #endif
 
