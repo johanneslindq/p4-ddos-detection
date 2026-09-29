@@ -1,6 +1,8 @@
 // Configuration
 #define COUNT_MIN_BITS 32
-#define COUNT_MIN_WIDTH 1024
+#define COUNT_MIN_WIDTH 128
+
+// TODO: Replace with more independent solution.
 #define COUNT_MIN_HASHING_ALGORITHM HashAlgorithm.crc32
 
 // Creation
