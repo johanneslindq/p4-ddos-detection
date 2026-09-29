@@ -14,13 +14,13 @@ res - variable to put the hash output
 use_ipv6 - use ipv6 or ipv4
 seed - seed for the hash function, should be different for all
 */
-#define get_hash(res, use_ipv6, seed) \
+#define get_count_min_hash(res, use_ipv6, seed) \
     if(use_ipv6){ \
         hash(res, COUNT_MIN_HASHING_ALGORITHM, (bit<COUNT_MIN_BITS>)0, \
-            {hdr.ipv6.srcAddr, hdr.ipv6.dstAddr, seed}, (bit<COUNT_MIN_BITS>)COUNT_MIN_WIDTH); \
+            {hdr.ipv6.dstAddr, seed}, (bit<COUNT_MIN_BITS>)COUNT_MIN_WIDTH-1); \
     } else { \
         hash(res, COUNT_MIN_HASHING_ALGORITHM, (bit<COUNT_MIN_BITS>)0, \
-            {hdr.ipv4.srcAddr, hdr.ipv4.dstAddr, seed}, (bit<COUNT_MIN_BITS>)COUNT_MIN_WIDTH); \
+            {hdr.ipv4.dstAddr, seed}, (bit<COUNT_MIN_BITS>)COUNT_MIN_WIDTH-1); \
     }
 
 /*

@@ -1,11 +1,11 @@
 #include <core.p4>
 #include <v1model.p4>
-#include "../include/headers-65536.p4"
+#include "../include/headers.p4"
 #include "../include/countmin.p4"
 #include "../include/hyperloglog.p4"
 
-#define UNIQUE_SOURCES_THRESHOLD  500;
-#define SYN_PER_DESTINATION_THRESHOLD  500;
+#define UNIQUE_SOURCES_THRESHOLD  500
+#define SYN_PER_DESTINATION_THRESHOLD  500
 
 #define ENABLE_LOGGING
 #define log_current_counts(count_min_value, hyperloglog_value) \
@@ -63,12 +63,13 @@ control SYNControllerIngress(inout headers hdr, inout metadata meta, inout stand
 
         if (hdr.tcp.isValid() && hdr.tcp.syn == 1 && hdr.tcp.ack == 0) {
             bit<COUNT_MIN_BITS> count_min_value = (bit<COUNT_MIN_BITS>)-1; // variable will be filled with current count
-            bit<HYPERLOGLOG_NUM_BITS> hyperloglog_value;
+            bit<HYPERLOGLOG_HASH_BITS> hyperloglog_value;
 
             // ipv6 not implemented yet
             if(hdr.ipv4.isValid()){
-                update_all_count_min(count_min_value, use_ipv6);  
-                update_hyperloglog(hyperloglog_value, use_ipv6);
+                update_all_count_min(count_min_value, use_ipv6)
+                update_hyperloglog(use_ipv6)
+                // TODO: Get HLL value.
             } else {
                 drop_packet();
             }
