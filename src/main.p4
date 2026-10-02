@@ -2,6 +2,7 @@
 #include <v1model.p4>
 #include "../include/headers.p4"
 #include "../include/countmin.p4"
+#define USE_HYPERLOGLOG
 #ifdef USE_HYPERLOGLOG
 #include "../include/hyperloglog.p4"
 #endif
@@ -13,9 +14,9 @@
 
 #define log_current_counts(count_min_value, hll_res) \
 log_msg("-------------COUNT-MIN COUNT-------------\n");\
-log_msg("The current SYN count for this destination is: {}\n", {count_min_value}); 
-//log_msg("-------------HLL COUNT-------------\n");\
-//log_msg("The current destination count: {}\n", {hll_res});\
+log_msg("The current SYN count for this destination is: {}\n", {count_min_value}); \
+log_msg("-------------HLL COUNT-------------\n");\
+log_msg("The current destination count: {}\n", {hll_res});
 
 parser SYNParser(packet_in packet, out headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
     

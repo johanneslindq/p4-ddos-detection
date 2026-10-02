@@ -1,8 +1,8 @@
 #include "hyperloglog_long_definitions.p4"
 // Basic structure
 #define HYPERLOGLOG_NUM_BITS 5 // NOTE: If > 6, change difference calculation.
-#define HYPERLOGLOG_INDEX_BITS 10
-#define HYPERLOGLOG_VALUE_BITS 16
+#define HYPERLOGLOG_INDEX_BITS 8
+#define HYPERLOGLOG_VALUE_BITS 24
 #define HYPERLOGLOG_HASH_BITS (HYPERLOGLOG_INDEX_BITS+HYPERLOGLOG_VALUE_BITS)
 
 #define HYPERLOGLOG_WIDTH (1<<HYPERLOGLOG_INDEX_BITS)
@@ -12,7 +12,9 @@
 #define HYPERLOGLOG_SEED 8w123
 
 //#define HYPERLOGLOG_SMALL_RANGE_CORRECTION_THRESHOLD 2477720000 // 1/(2.5 * 4096 / (0.7213/(1 + 1.079/4096) * 4096**2)) << 21
-#define HYPERLOGLOG_SMALL_RANGE_CORRECTION_THRESHOLD 38683753 // 1/(2.5 * 1024 / (0.7213/(1 + 1.079/1024) * 1024**2)) << 17
+//#define HYPERLOGLOG_SMALL_RANGE_CORRECTION_THRESHOLD 2475763263 // 1/(2.5 * 1024 / (0.7213/(1 + 1.079/1024) * 1024**2)) << 23
+//#define HYPERLOGLOG_SMALL_RANGE_CORRECTION_THRESHOLD 2473180435 // 1/(2.5 * 512 / (0.7213/(1 + 1.079/512) * 512**2)) << 24
+#define HYPERLOGLOG_SMALL_RANGE_CORRECTION_THRESHOLD 2467978252 // 1/(2.5 * 256 / (0.7213/(1 + 1.079/256) * 256**2)) << 25
 
 /*
 Create the HLL sketch.
@@ -66,7 +68,17 @@ leading_0_else_if(leading_0s, 11) \
 leading_0_else_if(leading_0s, 12) \
 leading_0_else_if(leading_0s, 13) \
 leading_0_else_if(leading_0s, 14) \
-leading_0_else_if(leading_0s, 15) 
+leading_0_else_if(leading_0s, 15) \
+leading_0_else_if(leading_0s, 16) \
+leading_0_else_if(leading_0s, 17) \
+leading_0_else_if(leading_0s, 18) \
+leading_0_else_if(leading_0s, 19) \
+leading_0_else_if(leading_0s, 20) \
+leading_0_else_if(leading_0s, 21) \
+leading_0_else_if(leading_0s, 22) \
+leading_0_else_if(leading_0s, 23) 
+
+
 
 
 /*
@@ -113,11 +125,11 @@ Get the HLL value:
 bit<HYPERLOGLOG_NUM_BITS> hll_value; \
 bit<64> hll_sum = 0; \
 bit<HYPERLOGLOG_INDEX_BITS> number_of_empty_registers = 0; \
-hll_add_bucket_1024(hll_sum, number_of_empty_registers) \
+hll_add_bucket(hll_sum, number_of_empty_registers) \
 \
 if (hll_sum >= HYPERLOGLOG_SMALL_RANGE_CORRECTION_THRESHOLD) { \
     if (number_of_empty_registers == 0) {hll_res = hll_sum;} \
-    hll_hardcoded_else_if_corrections_1024(number_of_empty_registers, hll_res) \
+    hll_hardcoded_else_if_corrections(number_of_empty_registers, hll_res) \
     else { hll_res = 0; } \
 } else { \
     hll_res = hll_sum; \
