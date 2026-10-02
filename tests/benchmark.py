@@ -718,7 +718,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--window-size", "--window_size",
         type=float,
-        default=0.02,
+        default=1.0,
         help="Size of each benchmark window in seconds (default: 1.0)."
     )
     args = parser.parse_args()
