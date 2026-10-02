@@ -1,68 +1,66 @@
 import argparse
 import csv
 import math
+import multiprocessing
 import os
+import queue
 import subprocess
+import threading
 import time
 import re
 
+from contextlib import closing
+from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
-from scapy.all import TCP, PcapReader, conf, sendp
+from scapy.all import IP, TCP, PcapReader, conf
 
-
-# Globals:
 
 # CIC-DDoS2019 was recorded in New Brunswick.
 # On 1 Dec 2018 the dataset's local time was UTC-4.
 DATASET_UTC_OFFSET_HOURS = -4
 
-ATTACK_REGISTER = "SYNControllerIngress.attack_detected"
+DETECTION_COUNTER = "SYNControllerIngress.detection_count"
 
-COUNT_MIN_REGISTERS = [
-    "SYNControllerIngress.count_min_register_1",
-    "SYNControllerIngress.count_min_register_2",
-    "SYNControllerIngress.count_min_register_3",
-    "SYNControllerIngress.count_min_register_4",
-]
 
-HLL_REGISTER = "SYNControllerIngress.hll_register"
+@dataclass
+class WindowSummary:
+    start: float
+    packets: int
+    packet_types: dict
+    syn_packets: int
+    attack_syn_packets: int
 
-def main(
-    dataset: str,
-    traffic_answer_sheet: str,
-    p4_program: str,
-    window_size: float = 1.0
-):
+
+@dataclass
+class DetectionSample:
+    # None means a boundary was missed; the counter cannot recover history.
+    detected_attack: bool | None
+    delay: float
+
+
+def main(dataset: str, traffic_answer_sheet: str, p4_program: str, window_size: float = 1.0):
+    if not math.isfinite(window_size) or window_size <= 0:
+        raise ValueError("window_size must be a positive, finite number")
 
     # ------------------------------------------------------------
-    # Initialize P4 program
-    # ------------------------------------------------------------
-    initialize_P4_program(p4_program)
-
-
-    # ------------------------------------------------------------
-    # Load ground-truth SYN attack periods from the CSV
+    # Load SYN-labelled flows for packet-level ground truth
     # ------------------------------------------------------------
     print_dataset_info(dataset)
-    print(f"Loading SYN attack intervals from {traffic_answer_sheet}...")
+    print(f"Loading SYN-labelled flows from {traffic_answer_sheet}...")
 
-    attack_intervals = load_attack_intervals(
-        traffic_answer_sheet
-    )
-
-    # Merge overlapping attack flows into larger attack periods.
-    # This makes checking each window much faster.
-
-    print("Merging overlapping SYN attack intervals...")
-
-    attack_intervals = merge_intervals(
-        attack_intervals
-    )
+    attack_flows = load_attack_flows(traffic_answer_sheet)
+    csv_syn_flows = sum(len(flows) for flows in attack_flows.values())
 
     print(
-        f"Loaded {len(attack_intervals)} merged SYN attack intervals"
+        f"Loaded {csv_syn_flows:,} SYN-labelled flows "
+        f"across {len(attack_flows):,} forward 5-tuples"
     )
+
+    # Do CSV matching before replay, retaining counts rather than the capture.
+    print("Preparing packet-level ground truth before continuous replay...")
+    windows = summarize_windows(dataset, attack_flows, window_size)
+    initialize_P4_program(p4_program)
 
     # ------------------------------------------------------------
     # Benchmark statistics
@@ -71,6 +69,8 @@ def main(
     window_number = 0
     total_packets = 0
     total_packet_types = dict.fromkeys(("TCP", "Non-TCP"), 0)
+    total_syn_packets = 0
+    total_attack_syn_packets = 0
 
     attack_windows = 0
     non_attack_windows = 0
@@ -81,94 +81,155 @@ def main(
     false_positives = 0
     true_negatives = 0
     false_negatives = 0
+    unmeasured_windows = 0
+    max_sample_delay = 0.0
 
     # ------------------------------------------------------------
-    # Process PCAP one time window at a time
+    # Replay and sample independently of evaluation and terminal output
     # ------------------------------------------------------------
 
-    for window_start, window_end, packets in read_aligned_windows(
-        dataset,
-        window_size
-    ):
 
-        window_number += 1
-        total_packets += len(packets)
+    with closing(measure_detection_windows(dataset, windows, window_size)) as measurements:
+        for window, sample in measurements:
 
-        # Convert PCAP timestamps into the same local time
-        # representation used by the CIC CSV.
-        dataset_window_start = pcap_timestamp_to_dataset_time(
-            window_start
+            window_number += 1
+            total_packets += window.packets
+
+            # Convert PCAP timestamps into the same local time
+            # representation used by the CIC CSV.
+            dataset_window_start = pcap_timestamp_to_dataset_time(window.start)
+
+            # --------------------------------------------------------
+            # Ground truth
+            # --------------------------------------------------------
+
+            window_packet_types = window.packet_types
+            tcp_packets = window_packet_types["TCP"]
+            syn_packets = window.syn_packets
+            attack_syn_packets = window.attack_syn_packets
+
+            for protocol, count in window_packet_types.items():
+                total_packet_types[protocol] += count
+            total_syn_packets += syn_packets
+            total_attack_syn_packets += attack_syn_packets
+
+            # A SYN-labelled flow does not imply continuous attack traffic.
+            # Only actual initial SYN packets matched to that flow count.
+            syn_attack_present = attack_syn_packets > 0
+
+            if syn_attack_present:
+                attack_windows += 1
+            else:
+                non_attack_windows += 1
+
+            # --------------------------------------------------------
+            # P4 detector
+            # --------------------------------------------------------
+
+            detected_attack = sample.detected_attack
+            max_sample_delay = max(max_sample_delay, sample.delay)
+            if detected_attack is None:
+                unmeasured_windows += 1
+            elif detected_attack and syn_attack_present:
+                true_positives += 1
+            elif detected_attack and not syn_attack_present:
+                false_positives += 1
+            elif not detected_attack and syn_attack_present:
+                false_negatives += 1
+            else:
+                true_negatives += 1
+
+            # --------------------------------------------------------
+            # Display status
+            # --------------------------------------------------------
+
+            clear_terminal()
+
+            print("=== BENCHMARK STATUS ===")
+            print(f"Window:                  {window_number}")
+            print(f"Dataset time:            {dataset_window_start}")
+            print()
+            print("PCAP packets (TCP replayed; non-TCP skipped):")
+            print(f"{'Type':<27}{'This window':>14}{'Total':>14}")
+            print(f"{'All packets':<27}{window.packets:>14,}{total_packets:>14,}")
+            print(f"{'TCP packets':<27}{tcp_packets:>14,}{total_packet_types['TCP']:>14,}")
+            print(f"{'Non-TCP packets':<27}{window_packet_types['Non-TCP']:>14,}{total_packet_types['Non-TCP']:>14,}")
+            print(f"{'Initial SYN packets':<27}{syn_packets:>14,}{total_syn_packets:>14,}")
+            print(f"{'Labelled attack SYN packets':<27}{attack_syn_packets:>14,}{total_attack_syn_packets:>14,}")
+            print("Replay counts do not confirm receipt by BMv2.")
+            print()
+            print(f"Attack windows:          {attack_windows}")
+            print(f"Non-attack windows:      {non_attack_windows}")
+            print()
+            print(f"True P4 positives:       {true_positives}")
+            print(f"False P4 positives:      {false_positives}")
+            print(f"True P4 negatives:       {true_negatives}")
+            print(f"False P4 negatives:      {false_negatives}")
+            print(f"Unmeasured P4 windows:   {unmeasured_windows}")
+            print(f"Counter boundary delay: {sample.delay:.6f} s (upper bound)")
+            print()
+            print(f"SYN attack this window:  {syn_attack_present}")
+            print(f"P4 detected attack:      {detected_attack}")
+
+    print(f"Maximum counter boundary delay: {max_sample_delay:.6f} s (upper bound)")
+    matched_csv_flows = sum(
+        flow["matched"]
+        for flows in attack_flows.values()
+        for flow in flows
+    )
+    print()
+    print("=== GROUND-TRUTH VALIDATION ===")
+    print(f"CSV SYN-labelled flows loaded: {csv_syn_flows:,}")
+    print(f"Distinct CSV SYN-flow entries matched: {matched_csv_flows:,}")
+    print(f"Total PCAP packets: {total_packets:,}")
+    print(f"Total TCP packets: {total_packet_types['TCP']:,}")
+    print(f"Total initial SYN packets: {total_syn_packets:,}")
+    print(f"Initial SYN packets matched to SYN-labelled flows: {total_attack_syn_packets:,}")
+    print(f"Initial SYN packets not matched to SYN-labelled flows: {total_syn_packets - total_attack_syn_packets:,}")
+
+
+def summarize_windows(dataset, attack_flows, window_size):
+    summaries = []
+
+    for start, packets in read_aligned_windows(dataset, window_size):
+
+        tcp_packets = 0
+        non_tcp_packets = 0
+        syn_packets = 0
+        attack_syn_packets = 0
+
+        for packet in packets:
+
+            if packet.haslayer(TCP):
+                tcp_packets += 1
+            else:
+                non_tcp_packets += 1
+                continue
+
+            if not is_initial_tcp_syn(packet):
+                continue
+
+            syn_packets += 1
+
+            if is_labelled_attack_syn(packet, attack_flows):
+                attack_syn_packets += 1
+
+        packet_types = {
+            "TCP": tcp_packets,
+            "Non-TCP": non_tcp_packets,
+        }
+
+        summaries.append(
+            WindowSummary(
+                start,
+                len(packets),
+                packet_types,
+                syn_packets,
+                attack_syn_packets,
+            )
         )
 
-        dataset_window_end = pcap_timestamp_to_dataset_time(
-            window_end
-        )
-
-        # --------------------------------------------------------
-        # Ground truth
-        # --------------------------------------------------------
-
-        syn_attack_present = syn_attack_in_window(
-            dataset_window_start,
-            dataset_window_end,
-            attack_intervals
-        )
-
-        if syn_attack_present:
-            attack_windows += 1
-        else:
-            non_attack_windows += 1
-
-        # --------------------------------------------------------
-        # P4 detector
-        # --------------------------------------------------------
-
-        # Reset sketches and detection state for this window. This is necessary because the P4 program does not know when a new window begins.
-        reset_p4_window()
-
-        # Send only TCP packets in this window through BMv2
-        send_packets_to_p4(packets)
-        window_packet_types = count_packet_types(packets)
-        for protocol, count in window_packet_types.items():
-            total_packet_types[protocol] += count
-
-        # Determine whether P4 detected a SYN flood
-        detected_attack = p4_detected_attack()
-        if detected_attack and syn_attack_present:
-            true_positives += 1
-        elif detected_attack and not syn_attack_present:
-            false_positives += 1
-        elif not detected_attack and syn_attack_present:
-            false_negatives += 1
-        else:
-            true_negatives += 1
-
-        # --------------------------------------------------------
-        # Display status
-        # --------------------------------------------------------
-
-        clear_terminal()
-
-        print("=== BENCHMARK STATUS ===")
-        print(f"Window:                  {window_number}")
-        print(f"Dataset time:            {dataset_window_start}")
-        print()
-        print("PCAP packets (TCP replayed; non-TCP skipped):")
-        print(f"{'Type':<12}{'This window':>14}{'Total':>14}")
-        print(f"{'All packets':<12}{len(packets):>14,}{total_packets:>14,}")
-        for protocol, count in window_packet_types.items():
-            print(f"{protocol:<12}{count:>14,}{total_packet_types[protocol]:>14,}")
-        print("Replay counts do not confirm receipt by BMv2.")
-        print()
-        print(f"Attack windows:          {attack_windows}")
-        print(f"Non-attack windows:      {non_attack_windows}")
-        print()
-        print(f"True P4 positives:       {true_positives}")
-        print(f"False P4 positives:      {false_positives}")
-        print(f"True P4 negatives:       {true_negatives}")
-        print(f"False P4 negatives:      {false_negatives}")
-        print()
-        print(f"SYN attack this window:  {syn_attack_present}")
+    return summaries
 
 
 def count_packet_types(packets):
@@ -196,70 +257,59 @@ def read_aligned_windows(pcap_file: str, window_size: float = 1.0):
         13:30:32.000 -> 13:30:33.000
     """
 
+    if not math.isfinite(window_size) or window_size <= 0:
+        raise ValueError("window_size must be a positive, finite number")
+
     with PcapReader(pcap_file) as pcap:
 
         current_window = []
-        current_window_start = None
+        current_window_index = None
+        previous_timestamp = None
 
         for packet in pcap:
 
             timestamp = float(packet.time)
+            if not math.isfinite(timestamp) or (
+                previous_timestamp is not None and timestamp < previous_timestamp
+            ):
+                raise ValueError("PCAP timestamps must be finite and nondecreasing")
+            previous_timestamp = timestamp
 
             # Align packet timestamp to an absolute
             # window boundary.
-            window_start = (
-                math.floor(timestamp / window_size)
-                * window_size
-            )
+            window_index = math.floor(timestamp / window_size)
 
-            if current_window_start is None:
-                current_window_start = window_start
+            if current_window_index is None:
+                current_window_index = window_index
 
-            # Packet belongs to the current window
-            if window_start == current_window_start:
+            # Include silence in the measurement timeline. Use integer indices
+            # to avoid accumulating floating-point error across empty windows.
+            while current_window_index < window_index:
+                yield current_window_index * window_size, current_window
+                current_window = []
+                current_window_index += 1
 
-                current_window.append(packet)
-
-            # Packet belongs to the next window
-            else:
-
-                yield (
-                    current_window_start,
-                    current_window_start + window_size,
-                    current_window
-                )
-
-                current_window = [packet]
-                current_window_start = window_start
+            current_window.append(packet)
 
         # Yield final window
         if current_window:
 
             yield (
-                current_window_start,
-                current_window_start + window_size,
+                current_window_index * window_size,
                 current_window
             )
 
 
-def load_attack_intervals(csv_file: str):
+def load_attack_flows(csv_file: str):
+    """Index SYN-labelled CSV flows by their forward IPv4 5-tuple.
+
+    Flow Duration is in microseconds. The interval restricts packet
+    matching; it does not mean every packet in the flow is an attack SYN.
+    Keep each CSV row separately, including rows sharing the same tuple.
     """
-    Read all SYN attack flows from the CSV.
+    attack_flows = {}
 
-    Each CSV row describes one labeled flow.
-
-    The attack interval is:
-
-        Timestamp
-            ->
-        Timestamp + Flow Duration
-
-    Flow Duration is stored in microseconds.
-    """
-
-    intervals = []
-
-    with open(csv_file, "r") as f:
+    with open(csv_file, "r", newline="") as f:
 
         reader = csv.DictReader(
             f,
@@ -268,14 +318,18 @@ def load_attack_intervals(csv_file: str):
 
         for row in reader:
 
-            # Since this is a SYN answer sheet this should normally
-            # always be true, but checking the label makes the code
-            # safer.
             if row["Label"].strip().lower() != "syn":
                 continue
 
+            flow_key = (
+                row["Source IP"].strip(),
+                int(row["Source Port"]),
+                row["Destination IP"].strip(),
+                int(row["Destination Port"]),
+                int(row["Protocol"])
+            )
             start = datetime.strptime(
-                row["Timestamp"],
+                row["Timestamp"].strip(),
                 "%Y-%m-%d %H:%M:%S.%f"
             )
 
@@ -287,92 +341,64 @@ def load_attack_intervals(csv_file: str):
                 microseconds=duration_microseconds
             )
 
-            intervals.append(
-                (start, end)
-            )
+            attack_flows.setdefault(flow_key, []).append({
+                "start": start,
+                "end": end,
+                "matched": False
+            })
 
-    return intervals
+    for flows in attack_flows.values():
+        flows.sort(key=lambda flow: flow["start"])
+
+    return attack_flows
 
 
-def merge_intervals(intervals):
-    """
-    Merge overlapping SYN-flow intervals.
+def get_ipv4_5_tuple(packet):
+    """Return the forward IPv4 TCP tuple, or None for other packets."""
+    if not packet.haslayer(IP) or not packet.haslayer(TCP):
+        return None
 
-    Example:
-
-        13:30:30 -> 13:30:40
-        13:30:35 -> 13:30:50
-
-    becomes:
-
-        13:30:30 -> 13:30:50
-
-    This avoids checking every individual CSV flow
-    for every PCAP window.
-    """
-
-    if not intervals:
-        return []
-
-    intervals.sort(
-        key=lambda interval: interval[0]
+    return (
+        packet[IP].src,
+        int(packet[TCP].sport),
+        packet[IP].dst,
+        int(packet[TCP].dport),
+        6
     )
 
-    merged = []
 
-    current_start, current_end = intervals[0]
+def is_initial_tcp_syn(packet):
+    """Require SYN=1 and ACK=0; other TCP flags may also be set."""
+    if not packet.haslayer(TCP):
+        return False
 
-    for start, end in intervals[1:]:
-
-        # Overlapping intervals
-        if start <= current_end:
-
-            if end > current_end:
-                current_end = end
-
-        # Gap between attacks
-        else:
-
-            merged.append(
-                (current_start, current_end)
-            )
-
-            current_start = start
-            current_end = end
-
-    merged.append(
-        (current_start, current_end)
-    )
-
-    return merged
+    flags = int(packet[TCP].flags)
+    return bool(flags & 0x02) and not bool(flags & 0x10)
 
 
-def syn_attack_in_window(window_start : datetime, window_end : datetime, attack_intervals : list):
+def is_labelled_attack_syn(packet, attack_flows):
+    """Match an actual initial SYN to a labelled flow's tuple and time.
+
+    Record every matching CSV entry for diagnostics. A packet still counts
+    only once even if several entries match. Reverse tuples are not tried.
     """
-    Return True if this benchmark window overlaps
-    at least one known SYN attack interval.
+    if not is_initial_tcp_syn(packet):
+        return False
 
-    Two time ranges overlap when:
+    flow_key = get_ipv4_5_tuple(packet)
+    if flow_key is None or flow_key not in attack_flows:
+        return False
 
-        attack_start < window_end
-        AND
-        attack_end >= window_start
-    """
+    packet_time = pcap_timestamp_to_dataset_time(float(packet.time))
+    matched = False
+    for flow in attack_flows[flow_key]:
+        if flow["start"] > packet_time:
+            break
+        if packet_time <= flow["end"]:
+            flow["matched"] = True
+            matched = True
 
-    for attack_start, attack_end in attack_intervals:
-
-        # Since intervals are sorted, once an attack begins
-        # after the window ends, there is no need to continue.
-        if attack_start >= window_end:
-            return False
-
-        if (
-            attack_start < window_end
-            and attack_end >= window_start
-        ):
-            return True
-
-    return False
+    return matched
 
 
 def pcap_timestamp_to_dataset_time(timestamp: float):
@@ -409,24 +435,9 @@ def clear_terminal():
     os.system("clear")
 
 def print_dataset_info(dataset: str):
-    """
-    This looks at the name of the dataset file and prints what the user can expect to see in the benchmark.
-    """
-    
-    # Strip the path and just get the filename
-    dataset = os.path.basename(dataset)
-    print(f"Benchmarking dataset: {dataset}")
-
-    if (dataset == "SAT-01-12-2018_0617.pcap"):
-        print("This is the flow of traffic right before the SYN flood attack. Only the last window of this dataset contains a SYN flood attack.")
-    elif (dataset == "SAT-01-12-2018_0618.pcap"):
-        print("This dataset contains a SYN flood attack throughouts the entire dataset. All windows of this dataset contain a SYN flood attack.")
-    elif (dataset == "SAT-01-12-2018_0619.pcap"):
-        print("This dataset contains a SYN flood attack throughouts the entire dataset. All windows of this dataset contain a SYN flood attack.")
-    elif (dataset == "SAT-01-12-2018_0620.pcap"):
-        print("This is the end of the SYN flood attack. Only the first window of this dataset contains a SYN flood attack.")
-    else:
-        print("Unknown dataset. No information available.")
+    """Describe packet-level ground truth without assuming labels from filenames."""
+    print(f"Benchmarking dataset: {os.path.basename(dataset)}")
+    print("Ground truth uses initial SYN packets matched to SYN-labelled CSV flows.")
 
 def initialize_P4_program(path_to_p4_program: str):
     p4_path = Path(path_to_p4_program)
@@ -509,32 +520,169 @@ def initialize_P4_program(path_to_p4_program: str):
 
     print(f"BMv2 started successfully; logs: {log_path}")
 
-def send_packets_to_p4(packets):
-    """Replay only packets with a decoded TCP layer into BMv2 port 1."""
-    tcp_packets = [packet for packet in packets if packet.haslayer(TCP)]
-    if not tcp_packets:
+def send_packets_to_p4(packets, replay_socket, replay_start, capture_start):
+    """Stream TCP on one monotonic timeline, including gaps between windows.
+
+    The socket and clock epoch are shared across the entire capture. Packet
+    timestamps remain unchanged for ground truth. Absolute deadlines avoid
+    accumulating send overhead; Scapy/OS scheduling is still best effort.
+    """
+    sent = 0
+    max_lateness = 0.0
+    for packet in packets:
+        if not packet.haslayer(TCP):
+            continue
+        deadline = replay_start + (float(packet.time) - capture_start)
+        frame = bytes(packet)
+        delay = deadline - time.monotonic()
+        if delay > 0:
+            time.sleep(delay)
+        replay_socket.send(frame)
+        max_lateness = max(max_lateness, time.monotonic() - deadline)
+        sent += 1
+    return sent, max_lateness
+
+
+def replay_worker(dataset, capture_start, connection):
+    """Own the replay socket in a process isolated from Python evaluation work."""
+    try:
+        with PcapReader(dataset) as packets, conf.L2socket(
+            iface="veth1", promisc=False
+        ) as replay_socket:
+            connection.send(("ready", None))
+            replay_start = connection.recv()
+            result = send_packets_to_p4(
+                packets, replay_socket, replay_start, capture_start
+            )
+        connection.send(("done", result))
+    except Exception as error:
+        connection.send(("error", f"{type(error).__name__}: {error}"))
+    finally:
+        connection.close()
+
+
+def sample_detection_counts(window_count, window_size, replay_start,
+                            previous_count, samples, stop):
+    """Sample absolute boundaries without waiting for status rendering."""
+    previous_boundary_valid = True
+    try:
+        for index in range(window_count):
+            deadline = replay_start + (index + 1) * window_size
+            if stop.wait(max(0.0, deadline - time.monotonic())):
+                return
+            current_count = read_p4_detection_count()
+            # The CLI does not timestamp the register read. Completion gives
+            # an upper bound on its delay relative to the requested boundary.
+            delay = max(0.0, time.monotonic() - deadline)
+            boundary_valid = delay < window_size
+            detected = (
+                current_count != previous_count
+                if boundary_valid and previous_boundary_valid else None
+            )
+            samples.put(DetectionSample(detected, delay))
+            previous_count = current_count
+            previous_boundary_valid = boundary_valid
+    except Exception as error:
+        samples.put(error)
+
+
+def receive_replay_message(connection):
+    try:
+        state, result = connection.recv()
+    except EOFError as error:
+        raise RuntimeError("Packet replay exited without reporting a result") from error
+    if state == "error":
+        raise RuntimeError(f"Packet replay failed: {result}")
+    return state, result
+
+
+def measure_detection_windows(dataset, windows, window_size):
+    """Yield window measurements while replay and counter sampling run freely."""
+    if not windows:
+        read_p4_detection_count()
         return
 
-    sendp(
-        tcp_packets,
-        iface="veth1",
-        promisc=False,
-        verbose=False
+    context = multiprocessing.get_context("spawn")
+    connection, worker_connection = context.Pipe()
+    replay = context.Process(
+        target=replay_worker, args=(dataset, windows[0].start, worker_connection)
     )
+    samples = queue.SimpleQueue()
+    stop = threading.Event()
+    sampler = None
+    replay_result = None
+    started = False
+    try:
+        replay.start()
+        started = True
+        worker_connection.close()
+        state, _ = receive_replay_message(connection)
+        if state != "ready":
+            raise RuntimeError("Packet replay did not initialize")
 
-def run_p4_cli(commands):
-    if isinstance(commands, str):
-        commands = [commands]
+        # Both workers are ready before starting the capture clock. The first
+        # window's aligned boundary is time zero, even when it starts with UDP.
+        previous_count = read_p4_detection_count()
+        replay_start = time.monotonic() + 0.1
+        sampler = threading.Thread(
+            target=sample_detection_counts,
+            args=(len(windows), window_size, replay_start, previous_count, samples, stop),
+            daemon=True,
+        )
+        sampler.start()
+        connection.send(replay_start)
 
+        for window in windows:
+            while True:
+                if replay_result is None and connection.poll():
+                    state, replay_result = receive_replay_message(connection)
+                    if state != "done":
+                        raise RuntimeError(f"Unexpected replay state: {state}")
+                try:
+                    sample = samples.get(timeout=0.1)
+                    break
+                except queue.Empty:
+                    continue
+            if isinstance(sample, Exception):
+                raise sample
+            yield window, sample
+
+        if replay_result is None:
+            state, replay_result = receive_replay_message(connection)
+            if state != "done":
+                raise RuntimeError(f"Unexpected replay state: {state}")
+        sent, max_lateness = replay_result
+        if sent != sum(window.packet_types["TCP"] for window in windows):
+            raise RuntimeError("Replay TCP count differs from the prepared capture")
+        print(f"TCP packets sent: {sent:,}; maximum replay lateness: {max_lateness:.6f} s")
+        if max_lateness >= window_size:
+            print("WARNING: Replay fell behind by at least one window; accuracy counts are unreliable.")
+    finally:
+        stop.set()
+        # Stop traffic promptly on interruption, before waiting for an active
+        # CLI read to finish (or reach its timeout).
+        if started:
+            if replay.is_alive():
+                replay.terminate()
+            replay.join()
+            replay.close()
+        if sampler is not None and sampler.ident is not None:
+            sampler.join()
+        connection.close()
+        worker_connection.close()
+
+# interact with the P4 program using simple_switch_CLI via Thrift
+def run_p4_cli(command):
     result = subprocess.run(
         [
             "simple_switch_CLI",
             "--thrift-port",
             "9090",
         ],
-        input="\n".join(commands) + "\n",
+        input=command + "\n",
         capture_output=True,
-        text=True
+        text=True,
+        timeout=10,
     )
 
     if result.returncode != 0:
@@ -544,33 +692,21 @@ def run_p4_cli(commands):
 
     return result.stdout
 
-def reset_p4_window():
-    commands = [
-        f"register_reset {ATTACK_REGISTER}",
-        f"register_reset {HLL_REGISTER}",
-    ]
-
-    for register in COUNT_MIN_REGISTERS:
-        commands.append(
-            f"register_reset {register}"
-        )
-
-    run_p4_cli(commands)
-
-def p4_detected_attack():
+def read_p4_detection_count():
+    """Read the cumulative 32-bit event counter without changing switch state."""
 
     output = run_p4_cli(
-        f"register_read {ATTACK_REGISTER} 0"
+        f"register_read {DETECTION_COUNTER} 0"
     )
 
     match = re.search(r"=\s*(\d+)", output)
 
     if match is None:
         raise RuntimeError(
-            f"Could not read attack register:\n{output}"
+            f"Could not read detection counter:\n{output}"
         )
 
-    return int(match.group(1)) != 0
+    return int(match.group(1))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark SYN attack detection.")
@@ -582,7 +718,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--window-size", "--window_size",
         type=float,
-        default=1.0,
+        default=0.02,
         help="Size of each benchmark window in seconds (default: 1.0)."
     )
     args = parser.parse_args()
@@ -591,7 +727,7 @@ if __name__ == "__main__":
 
     dataset_dir = Path(__file__).resolve().parent / "datasets"
     main(
-        str(dataset_dir / "syn-flood-cicddos" / "SAT-01-12-2018_0620.pcap"),
+        str(dataset_dir / "syn-flood-cicddos" / "SAT-01-12-2018_0618.pcap"),
         str(dataset_dir / "Syn-day-1.csv"),
         p4_program=args.p4_program,
         window_size=args.window_size

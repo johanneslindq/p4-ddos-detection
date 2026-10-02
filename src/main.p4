@@ -54,11 +54,15 @@ control SYNControllerIngress(inout headers hdr, inout metadata meta, inout stand
     create_count_min 
     hyperloglog_register 
 
-    // Create a mark for if an attack was detected
-    register<bit<1>>(1) attack_detected;
+    // Passive benchmark instrumentation; BMv2 initializes this to zero.
+    // Keep cumulative across detector/sketch resets (wraps at 2^32).
+    register<bit<32>>(1) detection_count;
 
     action mark_attack_detected() {
-        attack_detected.write(0, 1);
+        bit<32> value;
+        detection_count.read(value, 0);
+        value = value + 1;
+        detection_count.write(0, value);
     }
 
     action drop_packet() {
