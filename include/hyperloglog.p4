@@ -14,7 +14,7 @@
 Create the HLL sketch.
 CAN ONLY MAKE ONE!!!!
 */
-#define hyperloglog_register register<bit<HYPERLOGLOG_NUM_BITS>>(HYPERLOGLOG_WIDTH) hll_register
+#define hyperloglog_register register<bit<HYPERLOGLOG_NUM_BITS>>(HYPERLOGLOG_WIDTH) hll_register;
 
 /*
 HyperLogLog hashing:
@@ -36,7 +36,7 @@ Finds if all bits > index are 0:
 leading_0s - where to store the output, unchanged if condition is false.
 index - the index to check
 */
-#define leading_0_else_if(leading_0s, index) else if(value == (bit<HYPERLOGLOG_VALUE_BITS>)value[index:0]){leading_0s=HYPERLOGLOG_VALUE_BITS-index;}
+#define leading_0_else_if(leading_0s, value, index) else if(value == (bit<HYPERLOGLOG_VALUE_BITS>)value[index:0]){leading_0s=HYPERLOGLOG_VALUE_BITS-index;}
 
 /*
 Find leading 0s + 1:
@@ -47,22 +47,22 @@ value - variable with the input
 if(value == 0){ \
     leading_0s = HYPERLOGLOG_VALUE_BITS+1;  \
 } \
-leading_0_else_if(0) \
-leading_0_else_if(1) \
-leading_0_else_if(2) \
-leading_0_else_if(3) \
-leading_0_else_if(4) \
-leading_0_else_if(5) \
-leading_0_else_if(6) \
-leading_0_else_if(7) \
-leading_0_else_if(8) \
-leading_0_else_if(9) \
-leading_0_else_if(10) \
-leading_0_else_if(11) \
-leading_0_else_if(12) \
-leading_0_else_if(13) \
-leading_0_else_if(14) \
-leading_0_else_if(15) 
+leading_0_else_if(leading_0s, value, 0) \
+leading_0_else_if(leading_0s, value, 1) \
+leading_0_else_if(leading_0s, value, 2) \
+leading_0_else_if(leading_0s, value, 3) \
+leading_0_else_if(leading_0s, value, 4) \
+leading_0_else_if(leading_0s, value, 5) \
+leading_0_else_if(leading_0s, value, 6) \
+leading_0_else_if(leading_0s, value, 7) \
+leading_0_else_if(leading_0s, value, 8) \
+leading_0_else_if(leading_0s, value, 9) \
+leading_0_else_if(leading_0s, value, 10) \
+leading_0_else_if(leading_0s, value, 11) \
+leading_0_else_if(leading_0s, value, 12) \
+leading_0_else_if(leading_0s, value, 13) \
+leading_0_else_if(leading_0s, value, 14) \
+leading_0_else_if(leading_0s, value, 15)
 
 /*
 Update sketch:
@@ -76,16 +76,14 @@ bit<HYPERLOGLOG_VALUE_BITS> value; \
 bit<HYPERLOGLOG_NUM_BITS> leading_0s = 0; \
 bit<HYPERLOGLOG_NUM_BITS> hll_val = 0; \
 \
-get_hash(hash_res, use_ipv6, HYPERLOGLOG_SEED); \
+get_hll_hash(hash_res, use_ipv6, HYPERLOGLOG_SEED) \
 index = hash_res[HYPERLOGLOG_INDEX_BITS-1:0]; \
-value = = hash_res[HYPERLOGLOG_HASH_BITS-1:HYPERLOGLOG_INDEX_BITS]; \
+value = hash_res[HYPERLOGLOG_HASH_BITS-1:HYPERLOGLOG_INDEX_BITS]; \
 \
 find_leading_0(leading_0s, value) \
 \
-hll_register.read(hll_val, index); \
+hll_register.read(hll_val, (bit<32>)index); \
 if(leading_0s > hll_val){ \
-    hll_register.write(index, leading_0s); \
+    hll_register.write((bit<32>)index, leading_0s); \
 }
-
-
 

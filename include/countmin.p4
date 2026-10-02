@@ -32,7 +32,7 @@ min_var - the variable containing the current minimum, change if the result here
 #define update_count_min(register_id, use_ipv6, min_var) \
     bit<COUNT_MIN_BITS> var##register_id; \
     bit<COUNT_MIN_BITS> hash_res##register_id; \
-    get_hash(hash_res##register_id, use_ipv6, 8w##register_id) \
+    get_count_min_hash(hash_res##register_id, use_ipv6, 8w##register_id) \
     count_min_register_##register_id.read(var##register_id, (bit<COUNT_MIN_BITS>)hash_res##register_id); \
     var##register_id = var##register_id+1; \
     count_min_register_##register_id.write((bit<COUNT_MIN_BITS>)hash_res##register_id, var##register_id); \
