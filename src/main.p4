@@ -54,6 +54,13 @@ control SYNControllerIngress(inout headers hdr, inout metadata meta, inout stand
     create_count_min 
     hyperloglog_register 
 
+    // Create a mark for if an attack was detected
+    register<bit<1>>(1) attack_detected;
+
+    action mark_attack_detected() {
+        attack_detected.write(0, 1);
+    }
+
     action drop_packet() {
         mark_to_drop(standard_metadata);
     }
@@ -79,6 +86,7 @@ control SYNControllerIngress(inout headers hdr, inout metadata meta, inout stand
             #endif
 
             if(hyperloglog_value > UNIQUE_SOURCES_THRESHOLD && count_min_value > SYN_PER_DESTINATION_THRESHOLD){
+                mark_attack_detected(); // This is to later let the benchmark know that an attack was detected, so it can log it
                 drop_packet();
                 exit;
             }
