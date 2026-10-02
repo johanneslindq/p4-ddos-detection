@@ -576,8 +576,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark SYN attack detection.")
     parser.add_argument(
         "--p4-program", "--p4_program",
-        required=True,
-        help="Path to the P4 program."
+        default=str(Path(__file__).resolve().parent.parent / "src" / "main.p4"),
+        help="Path to the P4 program (default: repository src/main.p4)."
     )
     parser.add_argument(
         "--window-size", "--window_size",
