@@ -4,15 +4,29 @@ import math
 import os
 import subprocess
 import time
+import re
 
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from scapy.all import TCP, PcapReader, conf, sendp
 
 
+# Globals:
+
 # CIC-DDoS2019 was recorded in New Brunswick.
 # On 1 Dec 2018 the dataset's local time was UTC-4.
 DATASET_UTC_OFFSET_HOURS = -4
+
+ATTACK_REGISTER = "SYNControllerIngress.attack_detected"
+
+COUNT_MIN_REGISTERS = [
+    "SYNControllerIngress.count_min_register_1",
+    "SYNControllerIngress.count_min_register_2",
+    "SYNControllerIngress.count_min_register_3",
+    "SYNControllerIngress.count_min_register_4",
+]
+
+HLL_REGISTER = "SYNControllerIngress.hll_register"
 
 def main(
     dataset: str,
@@ -109,14 +123,16 @@ def main(
         # P4 detector
         # --------------------------------------------------------
 
-        # 1. Send only TCP packets in this window through BMv2
-        
+        # Reset sketches and detection state for this window. This is necessary because the P4 program does not know when a new window begins.
+        reset_p4_window()
+
+        # Send only TCP packets in this window through BMv2
         send_packets_to_p4(packets)
         window_packet_types = count_packet_types(packets)
         for protocol, count in window_packet_types.items():
             total_packet_types[protocol] += count
 
-        # 2. Determine whether P4 detected a SYN flood
+        # Determine whether P4 detected a SYN flood
         detected_attack = p4_detected_attack()
         if detected_attack and syn_attack_present:
             true_positives += 1
@@ -506,10 +522,55 @@ def send_packets_to_p4(packets):
         verbose=False
     )
 
+def run_p4_cli(commands):
+    if isinstance(commands, str):
+        commands = [commands]
+
+    result = subprocess.run(
+        [
+            "simple_switch_CLI",
+            "--thrift-port",
+            "9090",
+        ],
+        input="\n".join(commands) + "\n",
+        capture_output=True,
+        text=True
+    )
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"simple_switch_CLI failed:\n{result.stderr}"
+        )
+
+    return result.stdout
+
+def reset_p4_window():
+    commands = [
+        f"register_reset {ATTACK_REGISTER}",
+        f"register_reset {HLL_REGISTER}",
+    ]
+
+    for register in COUNT_MIN_REGISTERS:
+        commands.append(
+            f"register_reset {register}"
+        )
+
+    run_p4_cli(commands)
+
 def p4_detected_attack():
-    #TODO: Implement this function to check if the P4 program detected a SYN flood attack for the current window.
-    # This can probably just look at a counter in the P4 program that increments when a SYN flood is detected.
-    return False  # Placeholder implementation
+
+    output = run_p4_cli(
+        f"register_read {ATTACK_REGISTER} 0"
+    )
+
+    match = re.search(r"=\s*(\d+)", output)
+
+    if match is None:
+        raise RuntimeError(
+            f"Could not read attack register:\n{output}"
+        )
+
+    return int(match.group(1)) != 0
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark SYN attack detection.")
