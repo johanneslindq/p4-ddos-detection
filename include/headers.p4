@@ -66,8 +66,7 @@ header tcp_t{
 
 
 struct metadata {
-    bool use_ipv6;
-    bit<64> hll_res;
+    bit<32> pll_res;
     bit<9> number_of_empty_registers;
 }
 
