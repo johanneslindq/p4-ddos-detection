@@ -1,13 +1,13 @@
 #include <core.p4>
 #include <v1model.p4>
-#include "../include/headers.p4"
-#include "../include/countmin.p4"
+#include "../../include/headers.p4"
+#include "../../include/countmin.p4"
 #define USE_HYPERLOGLOG
 #ifdef USE_HYPERLOGLOG
-#include "../include/hyperloglog.p4"
+#include "../../include/hyperloglog.p4"
 #endif
 
-#define UNIQUE_SOURCES_THRESHOLD  500
+#define UNIQUE_SOURCES_THRESHOLD  393224112
 #define SYN_PER_DESTINATION_THRESHOLD  500
 
 #define ENABLE_LOGGING
@@ -16,7 +16,7 @@
 log_msg("-------------COUNT-MIN COUNT-------------\n");\
 log_msg("The current SYN count for this destination is: {}\n", {count_min_value}); \
 log_msg("-------------HLL COUNT-------------\n");\
-log_msg("The current destination count: {}\n", {hll_res});
+log_msg("The current source count: {}\n", {hll_res});
 
 parser SYNParser(packet_in packet, out headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
     
@@ -53,36 +53,38 @@ parser SYNParser(packet_in packet, out headers hdr, inout metadata meta, inout s
 
 
 control SYNControllerIngress(inout headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
+    action drop_packet() {
+        mark_to_drop(standard_metadata);
+    }
+
+    action apply_hll_correction(bit<64> correction_val) {
+        meta.hll_res = correction_val;
+    }
+
     // Create the sketches
     create_count_min(0)
     #ifdef USE_HYPERLOGLOG
     create_hyperloglog
     #endif
 
-    action drop_packet() {
-        mark_to_drop(standard_metadata);
-    }
-
     apply {
-        bool use_ipv6 = (hdr.ipv6.isValid() && !hdr.ipv4.isValid());
         bool any_ip_valid = (hdr.ipv6.isValid() || hdr.ipv4.isValid());
 
         if (hdr.tcp.isValid() && any_ip_valid && hdr.tcp.syn == 1 && hdr.tcp.ack == 0) {
 
-            bit<COUNT_MIN_BITS> count_min_value = (bit<COUNT_MIN_BITS>)-1; // variable will be filled with current count
-            update_all_count_min(count_min_value, use_ipv6, 0)
+            count_min_bits_t count_min_value = (count_min_bits_t)-1; // variable will be filled with current count
+            update_all_count_min(count_min_value, hdr.ipv6.isValid(), 0)
 
-            bit<64> hll_res;
             #ifdef USE_HYPERLOGLOG
-            update_hyperloglog(use_ipv6)
-            get_hll_value(hll_res)
+            update_hyperloglog(hdr.ipv6.isValid())
+            get_hll_value
             #endif
 
             #ifdef ENABLE_LOGGING
-            log_current_counts(count_min_value, hll_res)
+            log_current_counts(count_min_value, meta.hll_res)
             #endif
 
-            if(count_min_value > SYN_PER_DESTINATION_THRESHOLD && hll_res > UNIQUE_SOURCES_THRESHOLD){
+            if(count_min_value > SYN_PER_DESTINATION_THRESHOLD && meta.hll_res < UNIQUE_SOURCES_THRESHOLD){
                 #ifdef ENABLE_LOGGING
                 log_msg("DDOS thresholds passed.");
                 #endif
@@ -112,6 +114,7 @@ control MyDeparser(packet_out packet, in headers hdr) {
     apply {
         packet.emit(hdr.ethernet);
         packet.emit(hdr.ipv4);
+        packet.emit(hdr.ipv6);
         packet.emit(hdr.tcp);
     }
 }

@@ -1,0 +1,519 @@
+// ==========================================
+// Code for m = 256
+// ==========================================
+
+#define hll_add_bucket(hll_sum, number_of_empty_registers) \
+add_hll_register_value(0, hll_sum, number_of_empty_registers) \
+add_hll_register_value(1, hll_sum, number_of_empty_registers) \
+add_hll_register_value(2, hll_sum, number_of_empty_registers) \
+add_hll_register_value(3, hll_sum, number_of_empty_registers) \
+add_hll_register_value(4, hll_sum, number_of_empty_registers) \
+add_hll_register_value(5, hll_sum, number_of_empty_registers) \
+add_hll_register_value(6, hll_sum, number_of_empty_registers) \
+add_hll_register_value(7, hll_sum, number_of_empty_registers) \
+add_hll_register_value(8, hll_sum, number_of_empty_registers) \
+add_hll_register_value(9, hll_sum, number_of_empty_registers) \
+add_hll_register_value(10, hll_sum, number_of_empty_registers) \
+add_hll_register_value(11, hll_sum, number_of_empty_registers) \
+add_hll_register_value(12, hll_sum, number_of_empty_registers) \
+add_hll_register_value(13, hll_sum, number_of_empty_registers) \
+add_hll_register_value(14, hll_sum, number_of_empty_registers) \
+add_hll_register_value(15, hll_sum, number_of_empty_registers) \
+add_hll_register_value(16, hll_sum, number_of_empty_registers) \
+add_hll_register_value(17, hll_sum, number_of_empty_registers) \
+add_hll_register_value(18, hll_sum, number_of_empty_registers) \
+add_hll_register_value(19, hll_sum, number_of_empty_registers) \
+add_hll_register_value(20, hll_sum, number_of_empty_registers) \
+add_hll_register_value(21, hll_sum, number_of_empty_registers) \
+add_hll_register_value(22, hll_sum, number_of_empty_registers) \
+add_hll_register_value(23, hll_sum, number_of_empty_registers) \
+add_hll_register_value(24, hll_sum, number_of_empty_registers) \
+add_hll_register_value(25, hll_sum, number_of_empty_registers) \
+add_hll_register_value(26, hll_sum, number_of_empty_registers) \
+add_hll_register_value(27, hll_sum, number_of_empty_registers) \
+add_hll_register_value(28, hll_sum, number_of_empty_registers) \
+add_hll_register_value(29, hll_sum, number_of_empty_registers) \
+add_hll_register_value(30, hll_sum, number_of_empty_registers) \
+add_hll_register_value(31, hll_sum, number_of_empty_registers) \
+add_hll_register_value(32, hll_sum, number_of_empty_registers) \
+add_hll_register_value(33, hll_sum, number_of_empty_registers) \
+add_hll_register_value(34, hll_sum, number_of_empty_registers) \
+add_hll_register_value(35, hll_sum, number_of_empty_registers) \
+add_hll_register_value(36, hll_sum, number_of_empty_registers) \
+add_hll_register_value(37, hll_sum, number_of_empty_registers) \
+add_hll_register_value(38, hll_sum, number_of_empty_registers) \
+add_hll_register_value(39, hll_sum, number_of_empty_registers) \
+add_hll_register_value(40, hll_sum, number_of_empty_registers) \
+add_hll_register_value(41, hll_sum, number_of_empty_registers) \
+add_hll_register_value(42, hll_sum, number_of_empty_registers) \
+add_hll_register_value(43, hll_sum, number_of_empty_registers) \
+add_hll_register_value(44, hll_sum, number_of_empty_registers) \
+add_hll_register_value(45, hll_sum, number_of_empty_registers) \
+add_hll_register_value(46, hll_sum, number_of_empty_registers) \
+add_hll_register_value(47, hll_sum, number_of_empty_registers) \
+add_hll_register_value(48, hll_sum, number_of_empty_registers) \
+add_hll_register_value(49, hll_sum, number_of_empty_registers) \
+add_hll_register_value(50, hll_sum, number_of_empty_registers) \
+add_hll_register_value(51, hll_sum, number_of_empty_registers) \
+add_hll_register_value(52, hll_sum, number_of_empty_registers) \
+add_hll_register_value(53, hll_sum, number_of_empty_registers) \
+add_hll_register_value(54, hll_sum, number_of_empty_registers) \
+add_hll_register_value(55, hll_sum, number_of_empty_registers) \
+add_hll_register_value(56, hll_sum, number_of_empty_registers) \
+add_hll_register_value(57, hll_sum, number_of_empty_registers) \
+add_hll_register_value(58, hll_sum, number_of_empty_registers) \
+add_hll_register_value(59, hll_sum, number_of_empty_registers) \
+add_hll_register_value(60, hll_sum, number_of_empty_registers) \
+add_hll_register_value(61, hll_sum, number_of_empty_registers) \
+add_hll_register_value(62, hll_sum, number_of_empty_registers) \
+add_hll_register_value(63, hll_sum, number_of_empty_registers) \
+add_hll_register_value(64, hll_sum, number_of_empty_registers) \
+add_hll_register_value(65, hll_sum, number_of_empty_registers) \
+add_hll_register_value(66, hll_sum, number_of_empty_registers) \
+add_hll_register_value(67, hll_sum, number_of_empty_registers) \
+add_hll_register_value(68, hll_sum, number_of_empty_registers) \
+add_hll_register_value(69, hll_sum, number_of_empty_registers) \
+add_hll_register_value(70, hll_sum, number_of_empty_registers) \
+add_hll_register_value(71, hll_sum, number_of_empty_registers) \
+add_hll_register_value(72, hll_sum, number_of_empty_registers) \
+add_hll_register_value(73, hll_sum, number_of_empty_registers) \
+add_hll_register_value(74, hll_sum, number_of_empty_registers) \
+add_hll_register_value(75, hll_sum, number_of_empty_registers) \
+add_hll_register_value(76, hll_sum, number_of_empty_registers) \
+add_hll_register_value(77, hll_sum, number_of_empty_registers) \
+add_hll_register_value(78, hll_sum, number_of_empty_registers) \
+add_hll_register_value(79, hll_sum, number_of_empty_registers) \
+add_hll_register_value(80, hll_sum, number_of_empty_registers) \
+add_hll_register_value(81, hll_sum, number_of_empty_registers) \
+add_hll_register_value(82, hll_sum, number_of_empty_registers) \
+add_hll_register_value(83, hll_sum, number_of_empty_registers) \
+add_hll_register_value(84, hll_sum, number_of_empty_registers) \
+add_hll_register_value(85, hll_sum, number_of_empty_registers) \
+add_hll_register_value(86, hll_sum, number_of_empty_registers) \
+add_hll_register_value(87, hll_sum, number_of_empty_registers) \
+add_hll_register_value(88, hll_sum, number_of_empty_registers) \
+add_hll_register_value(89, hll_sum, number_of_empty_registers) \
+add_hll_register_value(90, hll_sum, number_of_empty_registers) \
+add_hll_register_value(91, hll_sum, number_of_empty_registers) \
+add_hll_register_value(92, hll_sum, number_of_empty_registers) \
+add_hll_register_value(93, hll_sum, number_of_empty_registers) \
+add_hll_register_value(94, hll_sum, number_of_empty_registers) \
+add_hll_register_value(95, hll_sum, number_of_empty_registers) \
+add_hll_register_value(96, hll_sum, number_of_empty_registers) \
+add_hll_register_value(97, hll_sum, number_of_empty_registers) \
+add_hll_register_value(98, hll_sum, number_of_empty_registers) \
+add_hll_register_value(99, hll_sum, number_of_empty_registers) \
+add_hll_register_value(100, hll_sum, number_of_empty_registers) \
+add_hll_register_value(101, hll_sum, number_of_empty_registers) \
+add_hll_register_value(102, hll_sum, number_of_empty_registers) \
+add_hll_register_value(103, hll_sum, number_of_empty_registers) \
+add_hll_register_value(104, hll_sum, number_of_empty_registers) \
+add_hll_register_value(105, hll_sum, number_of_empty_registers) \
+add_hll_register_value(106, hll_sum, number_of_empty_registers) \
+add_hll_register_value(107, hll_sum, number_of_empty_registers) \
+add_hll_register_value(108, hll_sum, number_of_empty_registers) \
+add_hll_register_value(109, hll_sum, number_of_empty_registers) \
+add_hll_register_value(110, hll_sum, number_of_empty_registers) \
+add_hll_register_value(111, hll_sum, number_of_empty_registers) \
+add_hll_register_value(112, hll_sum, number_of_empty_registers) \
+add_hll_register_value(113, hll_sum, number_of_empty_registers) \
+add_hll_register_value(114, hll_sum, number_of_empty_registers) \
+add_hll_register_value(115, hll_sum, number_of_empty_registers) \
+add_hll_register_value(116, hll_sum, number_of_empty_registers) \
+add_hll_register_value(117, hll_sum, number_of_empty_registers) \
+add_hll_register_value(118, hll_sum, number_of_empty_registers) \
+add_hll_register_value(119, hll_sum, number_of_empty_registers) \
+add_hll_register_value(120, hll_sum, number_of_empty_registers) \
+add_hll_register_value(121, hll_sum, number_of_empty_registers) \
+add_hll_register_value(122, hll_sum, number_of_empty_registers) \
+add_hll_register_value(123, hll_sum, number_of_empty_registers) \
+add_hll_register_value(124, hll_sum, number_of_empty_registers) \
+add_hll_register_value(125, hll_sum, number_of_empty_registers) \
+add_hll_register_value(126, hll_sum, number_of_empty_registers) \
+add_hll_register_value(127, hll_sum, number_of_empty_registers) \
+add_hll_register_value(128, hll_sum, number_of_empty_registers) \
+add_hll_register_value(129, hll_sum, number_of_empty_registers) \
+add_hll_register_value(130, hll_sum, number_of_empty_registers) \
+add_hll_register_value(131, hll_sum, number_of_empty_registers) \
+add_hll_register_value(132, hll_sum, number_of_empty_registers) \
+add_hll_register_value(133, hll_sum, number_of_empty_registers) \
+add_hll_register_value(134, hll_sum, number_of_empty_registers) \
+add_hll_register_value(135, hll_sum, number_of_empty_registers) \
+add_hll_register_value(136, hll_sum, number_of_empty_registers) \
+add_hll_register_value(137, hll_sum, number_of_empty_registers) \
+add_hll_register_value(138, hll_sum, number_of_empty_registers) \
+add_hll_register_value(139, hll_sum, number_of_empty_registers) \
+add_hll_register_value(140, hll_sum, number_of_empty_registers) \
+add_hll_register_value(141, hll_sum, number_of_empty_registers) \
+add_hll_register_value(142, hll_sum, number_of_empty_registers) \
+add_hll_register_value(143, hll_sum, number_of_empty_registers) \
+add_hll_register_value(144, hll_sum, number_of_empty_registers) \
+add_hll_register_value(145, hll_sum, number_of_empty_registers) \
+add_hll_register_value(146, hll_sum, number_of_empty_registers) \
+add_hll_register_value(147, hll_sum, number_of_empty_registers) \
+add_hll_register_value(148, hll_sum, number_of_empty_registers) \
+add_hll_register_value(149, hll_sum, number_of_empty_registers) \
+add_hll_register_value(150, hll_sum, number_of_empty_registers) \
+add_hll_register_value(151, hll_sum, number_of_empty_registers) \
+add_hll_register_value(152, hll_sum, number_of_empty_registers) \
+add_hll_register_value(153, hll_sum, number_of_empty_registers) \
+add_hll_register_value(154, hll_sum, number_of_empty_registers) \
+add_hll_register_value(155, hll_sum, number_of_empty_registers) \
+add_hll_register_value(156, hll_sum, number_of_empty_registers) \
+add_hll_register_value(157, hll_sum, number_of_empty_registers) \
+add_hll_register_value(158, hll_sum, number_of_empty_registers) \
+add_hll_register_value(159, hll_sum, number_of_empty_registers) \
+add_hll_register_value(160, hll_sum, number_of_empty_registers) \
+add_hll_register_value(161, hll_sum, number_of_empty_registers) \
+add_hll_register_value(162, hll_sum, number_of_empty_registers) \
+add_hll_register_value(163, hll_sum, number_of_empty_registers) \
+add_hll_register_value(164, hll_sum, number_of_empty_registers) \
+add_hll_register_value(165, hll_sum, number_of_empty_registers) \
+add_hll_register_value(166, hll_sum, number_of_empty_registers) \
+add_hll_register_value(167, hll_sum, number_of_empty_registers) \
+add_hll_register_value(168, hll_sum, number_of_empty_registers) \
+add_hll_register_value(169, hll_sum, number_of_empty_registers) \
+add_hll_register_value(170, hll_sum, number_of_empty_registers) \
+add_hll_register_value(171, hll_sum, number_of_empty_registers) \
+add_hll_register_value(172, hll_sum, number_of_empty_registers) \
+add_hll_register_value(173, hll_sum, number_of_empty_registers) \
+add_hll_register_value(174, hll_sum, number_of_empty_registers) \
+add_hll_register_value(175, hll_sum, number_of_empty_registers) \
+add_hll_register_value(176, hll_sum, number_of_empty_registers) \
+add_hll_register_value(177, hll_sum, number_of_empty_registers) \
+add_hll_register_value(178, hll_sum, number_of_empty_registers) \
+add_hll_register_value(179, hll_sum, number_of_empty_registers) \
+add_hll_register_value(180, hll_sum, number_of_empty_registers) \
+add_hll_register_value(181, hll_sum, number_of_empty_registers) \
+add_hll_register_value(182, hll_sum, number_of_empty_registers) \
+add_hll_register_value(183, hll_sum, number_of_empty_registers) \
+add_hll_register_value(184, hll_sum, number_of_empty_registers) \
+add_hll_register_value(185, hll_sum, number_of_empty_registers) \
+add_hll_register_value(186, hll_sum, number_of_empty_registers) \
+add_hll_register_value(187, hll_sum, number_of_empty_registers) \
+add_hll_register_value(188, hll_sum, number_of_empty_registers) \
+add_hll_register_value(189, hll_sum, number_of_empty_registers) \
+add_hll_register_value(190, hll_sum, number_of_empty_registers) \
+add_hll_register_value(191, hll_sum, number_of_empty_registers) \
+add_hll_register_value(192, hll_sum, number_of_empty_registers) \
+add_hll_register_value(193, hll_sum, number_of_empty_registers) \
+add_hll_register_value(194, hll_sum, number_of_empty_registers) \
+add_hll_register_value(195, hll_sum, number_of_empty_registers) \
+add_hll_register_value(196, hll_sum, number_of_empty_registers) \
+add_hll_register_value(197, hll_sum, number_of_empty_registers) \
+add_hll_register_value(198, hll_sum, number_of_empty_registers) \
+add_hll_register_value(199, hll_sum, number_of_empty_registers) \
+add_hll_register_value(200, hll_sum, number_of_empty_registers) \
+add_hll_register_value(201, hll_sum, number_of_empty_registers) \
+add_hll_register_value(202, hll_sum, number_of_empty_registers) \
+add_hll_register_value(203, hll_sum, number_of_empty_registers) \
+add_hll_register_value(204, hll_sum, number_of_empty_registers) \
+add_hll_register_value(205, hll_sum, number_of_empty_registers) \
+add_hll_register_value(206, hll_sum, number_of_empty_registers) \
+add_hll_register_value(207, hll_sum, number_of_empty_registers) \
+add_hll_register_value(208, hll_sum, number_of_empty_registers) \
+add_hll_register_value(209, hll_sum, number_of_empty_registers) \
+add_hll_register_value(210, hll_sum, number_of_empty_registers) \
+add_hll_register_value(211, hll_sum, number_of_empty_registers) \
+add_hll_register_value(212, hll_sum, number_of_empty_registers) \
+add_hll_register_value(213, hll_sum, number_of_empty_registers) \
+add_hll_register_value(214, hll_sum, number_of_empty_registers) \
+add_hll_register_value(215, hll_sum, number_of_empty_registers) \
+add_hll_register_value(216, hll_sum, number_of_empty_registers) \
+add_hll_register_value(217, hll_sum, number_of_empty_registers) \
+add_hll_register_value(218, hll_sum, number_of_empty_registers) \
+add_hll_register_value(219, hll_sum, number_of_empty_registers) \
+add_hll_register_value(220, hll_sum, number_of_empty_registers) \
+add_hll_register_value(221, hll_sum, number_of_empty_registers) \
+add_hll_register_value(222, hll_sum, number_of_empty_registers) \
+add_hll_register_value(223, hll_sum, number_of_empty_registers) \
+add_hll_register_value(224, hll_sum, number_of_empty_registers) \
+add_hll_register_value(225, hll_sum, number_of_empty_registers) \
+add_hll_register_value(226, hll_sum, number_of_empty_registers) \
+add_hll_register_value(227, hll_sum, number_of_empty_registers) \
+add_hll_register_value(228, hll_sum, number_of_empty_registers) \
+add_hll_register_value(229, hll_sum, number_of_empty_registers) \
+add_hll_register_value(230, hll_sum, number_of_empty_registers) \
+add_hll_register_value(231, hll_sum, number_of_empty_registers) \
+add_hll_register_value(232, hll_sum, number_of_empty_registers) \
+add_hll_register_value(233, hll_sum, number_of_empty_registers) \
+add_hll_register_value(234, hll_sum, number_of_empty_registers) \
+add_hll_register_value(235, hll_sum, number_of_empty_registers) \
+add_hll_register_value(236, hll_sum, number_of_empty_registers) \
+add_hll_register_value(237, hll_sum, number_of_empty_registers) \
+add_hll_register_value(238, hll_sum, number_of_empty_registers) \
+add_hll_register_value(239, hll_sum, number_of_empty_registers) \
+add_hll_register_value(240, hll_sum, number_of_empty_registers) \
+add_hll_register_value(241, hll_sum, number_of_empty_registers) \
+add_hll_register_value(242, hll_sum, number_of_empty_registers) \
+add_hll_register_value(243, hll_sum, number_of_empty_registers) \
+add_hll_register_value(244, hll_sum, number_of_empty_registers) \
+add_hll_register_value(245, hll_sum, number_of_empty_registers) \
+add_hll_register_value(246, hll_sum, number_of_empty_registers) \
+add_hll_register_value(247, hll_sum, number_of_empty_registers) \
+add_hll_register_value(248, hll_sum, number_of_empty_registers) \
+add_hll_register_value(249, hll_sum, number_of_empty_registers) \
+add_hll_register_value(250, hll_sum, number_of_empty_registers) \
+add_hll_register_value(251, hll_sum, number_of_empty_registers) \
+add_hll_register_value(252, hll_sum, number_of_empty_registers) \
+add_hll_register_value(253, hll_sum, number_of_empty_registers) \
+add_hll_register_value(254, hll_sum, number_of_empty_registers) \
+add_hll_register_value(255, hll_sum, number_of_empty_registers)
+
+
+#define hll_hardcoded_else_if_corrections(number_of_empty_registers, hll_res) \
+    1 : apply_hll_correction((bit<64>)31w1112663149);  \
+    2 : apply_hll_correction((bit<64>)31w1271615027);  \
+    3 : apply_hll_correction((bit<64>)31w1387568692);  \
+    4 : apply_hll_correction((bit<64>)31w1483550865);  \
+    5 : apply_hll_correction((bit<64>)31w1567663344);  \
+    6 : apply_hll_correction((bit<64>)31w1643812289);  \
+    7 : apply_hll_correction((bit<64>)31w1714214058);  \
+    8 : apply_hll_correction((bit<64>)31w1780261038);  \
+    9 : apply_hll_correction((bit<64>)31w1842891713);  \
+    10 : apply_hll_correction((bit<64>)31w1902772204);  \
+    11 : apply_hll_correction((bit<64>)31w1960394480);  \
+    12 : apply_hll_correction((bit<64>)31w2016133541);  \
+    13 : apply_hll_correction((bit<64>)31w2070282681);  \
+    14 : apply_hll_correction((bit<64>)31w2123076250);  \
+    15 : apply_hll_correction((bit<64>)32w2174704927);  \
+    16 : apply_hll_correction((bit<64>)32w2225326297);  \
+    17 : apply_hll_correction((bit<64>)32w2275072371);  \
+    18 : apply_hll_correction((bit<64>)32w2324055062);  \
+    19 : apply_hll_correction((bit<64>)32w2372370262);  \
+    20 : apply_hll_correction((bit<64>)32w2420100917);  \
+    21 : apply_hll_correction((bit<64>)32w2467319394);  \
+    22 : apply_hll_correction((bit<64>)32w2514089330);  \
+    23 : apply_hll_correction((bit<64>)32w2560467086);  \
+    24 : apply_hll_correction((bit<64>)32w2606502913);  \
+    25 : apply_hll_correction((bit<64>)32w2652241886);  \
+    26 : apply_hll_correction((bit<64>)32w2697724675);  \
+    27 : apply_hll_correction((bit<64>)32w2742988169);  \
+    28 : apply_hll_correction((bit<64>)32w2788065999);  \
+    29 : apply_hll_correction((bit<64>)32w2832988972);  \
+    30 : apply_hll_correction((bit<64>)32w2877785434);  \
+    31 : apply_hll_correction((bit<64>)32w2922481583);  \
+    32 : apply_hll_correction((bit<64>)32w2967101730);  \
+    33 : apply_hll_correction((bit<64>)32w3011668520);  \
+    34 : apply_hll_correction((bit<64>)32w3056203133);  \
+    35 : apply_hll_correction((bit<64>)32w3100725443);  \
+    36 : apply_hll_correction((bit<64>)32w3145254170);  \
+    37 : apply_hll_correction((bit<64>)32w3189807000);  \
+    38 : apply_hll_correction((bit<64>)32w3234400704);  \
+    39 : apply_hll_correction((bit<64>)32w3279051229);  \
+    40 : apply_hll_correction((bit<64>)32w3323773784);  \
+    41 : apply_hll_correction((bit<64>)32w3368582922);  \
+    42 : apply_hll_correction((bit<64>)32w3413492603);  \
+    43 : apply_hll_correction((bit<64>)32w3458516258);  \
+    44 : apply_hll_correction((bit<64>)32w3503666839);  \
+    45 : apply_hll_correction((bit<64>)32w3548956872);  \
+    46 : apply_hll_correction((bit<64>)32w3594398500);  \
+    47 : apply_hll_correction((bit<64>)32w3640003521);  \
+    48 : apply_hll_correction((bit<64>)32w3685783427);  \
+    49 : apply_hll_correction((bit<64>)32w3731749434);  \
+    50 : apply_hll_correction((bit<64>)32w3777912516);  \
+    51 : apply_hll_correction((bit<64>)32w3824283427);  \
+    52 : apply_hll_correction((bit<64>)32w3870872731);  \
+    53 : apply_hll_correction((bit<64>)32w3917690825);  \
+    54 : apply_hll_correction((bit<64>)32w3964747957);  \
+    55 : apply_hll_correction((bit<64>)32w4012054249);  \
+    56 : apply_hll_correction((bit<64>)32w4059619716);  \
+    57 : apply_hll_correction((bit<64>)32w4107454281);  \
+    58 : apply_hll_correction((bit<64>)32w4155567793);  \
+    59 : apply_hll_correction((bit<64>)32w4203970042);  \
+    60 : apply_hll_correction((bit<64>)32w4252670773);  \
+    61 : apply_hll_correction((bit<64>)33w4301679700);  \
+    62 : apply_hll_correction((bit<64>)33w4351006519);  \
+    63 : apply_hll_correction((bit<64>)33w4400660918);  \
+    64 : apply_hll_correction((bit<64>)33w4450652595);  \
+    65 : apply_hll_correction((bit<64>)33w4500991260);  \
+    66 : apply_hll_correction((bit<64>)33w4551686655);  \
+    67 : apply_hll_correction((bit<64>)33w4602748558);  \
+    68 : apply_hll_correction((bit<64>)33w4654186795);  \
+    69 : apply_hll_correction((bit<64>)33w4706011252);  \
+    70 : apply_hll_correction((bit<64>)33w4758231881);  \
+    71 : apply_hll_correction((bit<64>)33w4810858712);  \
+    72 : apply_hll_correction((bit<64>)33w4863901860);  \
+    73 : apply_hll_correction((bit<64>)33w4917371536);  \
+    74 : apply_hll_correction((bit<64>)33w4971278055);  \
+    75 : apply_hll_correction((bit<64>)33w5025631843);  \
+    76 : apply_hll_correction((bit<64>)33w5080443451);  \
+    77 : apply_hll_correction((bit<64>)33w5135723555);  \
+    78 : apply_hll_correction((bit<64>)33w5191482975);  \
+    79 : apply_hll_correction((bit<64>)33w5247732674);  \
+    80 : apply_hll_correction((bit<64>)33w5304483772);  \
+    81 : apply_hll_correction((bit<64>)33w5361747556);  \
+    82 : apply_hll_correction((bit<64>)33w5419535483);  \
+    83 : apply_hll_correction((bit<64>)33w5477859193);  \
+    84 : apply_hll_correction((bit<64>)33w5536730518);  \
+    85 : apply_hll_correction((bit<64>)33w5596161490);  \
+    86 : apply_hll_correction((bit<64>)33w5656164349);  \
+    87 : apply_hll_correction((bit<64>)33w5716751554);  \
+    88 : apply_hll_correction((bit<64>)33w5777935791);  \
+    89 : apply_hll_correction((bit<64>)33w5839729986);  \
+    90 : apply_hll_correction((bit<64>)33w5902147309);  \
+    91 : apply_hll_correction((bit<64>)33w5965201191);  \
+    92 : apply_hll_correction((bit<64>)33w6028905328);  \
+    93 : apply_hll_correction((bit<64>)33w6093273695);  \
+    94 : apply_hll_correction((bit<64>)33w6158320558);  \
+    95 : apply_hll_correction((bit<64>)33w6224060480);  \
+    96 : apply_hll_correction((bit<64>)33w6290508339);  \
+    97 : apply_hll_correction((bit<64>)33w6357679334);  \
+    98 : apply_hll_correction((bit<64>)33w6425589001);  \
+    99 : apply_hll_correction((bit<64>)33w6494253224);  \
+    100 : apply_hll_correction((bit<64>)33w6563688248);  \
+    101 : apply_hll_correction((bit<64>)33w6633910691);  \
+    102 : apply_hll_correction((bit<64>)33w6704937561);  \
+    103 : apply_hll_correction((bit<64>)33w6776786267);  \
+    104 : apply_hll_correction((bit<64>)33w6849474637);  \
+    105 : apply_hll_correction((bit<64>)33w6923020928);  \
+    106 : apply_hll_correction((bit<64>)33w6997443848);  \
+    107 : apply_hll_correction((bit<64>)33w7072762568);  \
+    108 : apply_hll_correction((bit<64>)33w7148996741);  \
+    109 : apply_hll_correction((bit<64>)33w7226166519);  \
+    110 : apply_hll_correction((bit<64>)33w7304292569);  \
+    111 : apply_hll_correction((bit<64>)33w7383396099);  \
+    112 : apply_hll_correction((bit<64>)33w7463498868);  \
+    113 : apply_hll_correction((bit<64>)33w7544623215);  \
+    114 : apply_hll_correction((bit<64>)33w7626792074);  \
+    115 : apply_hll_correction((bit<64>)33w7710029001);  \
+    116 : apply_hll_correction((bit<64>)33w7794358195);  \
+    117 : apply_hll_correction((bit<64>)33w7879804521);  \
+    118 : apply_hll_correction((bit<64>)33w7966393536);  \
+    119 : apply_hll_correction((bit<64>)33w8054151518);  \
+    120 : apply_hll_correction((bit<64>)33w8143105487);  \
+    121 : apply_hll_correction((bit<64>)33w8233283241);  \
+    122 : apply_hll_correction((bit<64>)33w8324713377);  \
+    123 : apply_hll_correction((bit<64>)33w8417425330);  \
+    124 : apply_hll_correction((bit<64>)33w8511449403);  \
+    125 : apply_hll_correction((bit<64>)34w8606816796);  \
+    126 : apply_hll_correction((bit<64>)34w8703559648);  \
+    127 : apply_hll_correction((bit<64>)34w8801711072);  \
+    128 : apply_hll_correction((bit<64>)34w8901305189);  \
+    129 : apply_hll_correction((bit<64>)34w9002377177);  \
+    130 : apply_hll_correction((bit<64>)34w9104963306);  \
+    131 : apply_hll_correction((bit<64>)34w9209100986);  \
+    132 : apply_hll_correction((bit<64>)34w9314828811);  \
+    133 : apply_hll_correction((bit<64>)34w9422186613);  \
+    134 : apply_hll_correction((bit<64>)34w9531215506);  \
+    135 : apply_hll_correction((bit<64>)34w9641957946);  \
+    136 : apply_hll_correction((bit<64>)34w9754457782);  \
+    137 : apply_hll_correction((bit<64>)34w9868760320);  \
+    138 : apply_hll_correction((bit<64>)34w9984912381);  \
+    139 : apply_hll_correction((bit<64>)34w10102962371);  \
+    140 : apply_hll_correction((bit<64>)34w10222960345);  \
+    141 : apply_hll_correction((bit<64>)34w10344958080);  \
+    142 : apply_hll_correction((bit<64>)34w10469009154);  \
+    143 : apply_hll_correction((bit<64>)34w10595169025);  \
+    144 : apply_hll_correction((bit<64>)34w10723495112);  \
+    145 : apply_hll_correction((bit<64>)34w10854046888);  \
+    146 : apply_hll_correction((bit<64>)34w10986885972);  \
+    147 : apply_hll_correction((bit<64>)34w11122076229);  \
+    148 : apply_hll_correction((bit<64>)34w11259683872);  \
+    149 : apply_hll_correction((bit<64>)34w11399777574);  \
+    150 : apply_hll_correction((bit<64>)34w11542428583);  \
+    151 : apply_hll_correction((bit<64>)34w11687710847);  \
+    152 : apply_hll_correction((bit<64>)34w11835701144);  \
+    153 : apply_hll_correction((bit<64>)34w11986479216);  \
+    154 : apply_hll_correction((bit<64>)34w12140127921);  \
+    155 : apply_hll_correction((bit<64>)34w12296733381);  \
+    156 : apply_hll_correction((bit<64>)34w12456385150);  \
+    157 : apply_hll_correction((bit<64>)34w12619176387);  \
+    158 : apply_hll_correction((bit<64>)34w12785204037);  \
+    159 : apply_hll_correction((bit<64>)34w12954569033);  \
+    160 : apply_hll_correction((bit<64>)34w13127376495);  \
+    161 : apply_hll_correction((bit<64>)34w13303735961);  \
+    162 : apply_hll_correction((bit<64>)34w13483761612);  \
+    163 : apply_hll_correction((bit<64>)34w13667572531);  \
+    164 : apply_hll_correction((bit<64>)34w13855292963);  \
+    165 : apply_hll_correction((bit<64>)34w14047052602);  \
+    166 : apply_hll_correction((bit<64>)34w14242986895);  \
+    167 : apply_hll_correction((bit<64>)34w14443237362);  \
+    168 : apply_hll_correction((bit<64>)34w14647951946);  \
+    169 : apply_hll_correction((bit<64>)34w14857285375);  \
+    170 : apply_hll_correction((bit<64>)34w15071399567);  \
+    171 : apply_hll_correction((bit<64>)34w15290464044);  \
+    172 : apply_hll_correction((bit<64>)34w15514656389);  \
+    173 : apply_hll_correction((bit<64>)34w15744162734);  \
+    174 : apply_hll_correction((bit<64>)34w15979178275);  \
+    175 : apply_hll_correction((bit<64>)34w16219907839);  \
+    176 : apply_hll_correction((bit<64>)34w16466566481);  \
+    177 : apply_hll_correction((bit<64>)34w16719380134);  \
+    178 : apply_hll_correction((bit<64>)34w16978586305);  \
+    179 : apply_hll_correction((bit<64>)35w17244434830);  \
+    180 : apply_hll_correction((bit<64>)35w17517188681);  \
+    181 : apply_hll_correction((bit<64>)35w17797124845);  \
+    182 : apply_hll_correction((bit<64>)35w18084535270);  \
+    183 : apply_hll_correction((bit<64>)35w18379727890);  \
+    184 : apply_hll_correction((bit<64>)35w18683027736);  \
+    185 : apply_hll_correction((bit<64>)35w18994778139);  \
+    186 : apply_hll_correction((bit<64>)35w19315342039);  \
+    187 : apply_hll_correction((bit<64>)35w19645103406);  \
+    188 : apply_hll_correction((bit<64>)35w19984468783);  \
+    189 : apply_hll_correction((bit<64>)35w20333868976);  \
+    190 : apply_hll_correction((bit<64>)35w20693760890);  \
+    191 : apply_hll_correction((bit<64>)35w21064629534);  \
+    192 : apply_hll_correction((bit<64>)35w21446990223);  \
+    193 : apply_hll_correction((bit<64>)35w21841390978);  \
+    194 : apply_hll_correction((bit<64>)35w22248415165);  \
+    195 : apply_hll_correction((bit<64>)35w22668684395);  \
+    196 : apply_hll_correction((bit<64>)35w23102861709);  \
+    197 : apply_hll_correction((bit<64>)35w23551655088);  \
+    198 : apply_hll_correction((bit<64>)35w24015821330);  \
+    199 : apply_hll_correction((bit<64>)35w24496170331);  \
+    200 : apply_hll_correction((bit<64>)35w24993569827);  \
+    201 : apply_hll_correction((bit<64>)35w25508950650);  \
+    202 : apply_hll_correction((bit<64>)35w26043312575);  \
+    203 : apply_hll_correction((bit<64>)35w26597730818);  \
+    204 : apply_hll_correction((bit<64>)35w27173363296);  \
+    205 : apply_hll_correction((bit<64>)35w27771458732);  \
+    206 : apply_hll_correction((bit<64>)35w28393365735);  \
+    207 : apply_hll_correction((bit<64>)35w29040542995);  \
+    208 : apply_hll_correction((bit<64>)35w29714570750);  \
+    209 : apply_hll_correction((bit<64>)35w30417163715);  \
+    210 : apply_hll_correction((bit<64>)35w31150185700);  \
+    211 : apply_hll_correction((bit<64>)35w31915666175);  \
+    212 : apply_hll_correction((bit<64>)35w32715819100);  \
+    213 : apply_hll_correction((bit<64>)35w33553064370);  \
+    214 : apply_hll_correction((bit<64>)36w34430052338);  \
+    215 : apply_hll_correction((bit<64>)36w35349691916);  \
+    216 : apply_hll_correction((bit<64>)36w36315182897);  \
+    217 : apply_hll_correction((bit<64>)36w37330053246);  \
+    218 : apply_hll_correction((bit<64>)36w38398202282);  \
+    219 : apply_hll_correction((bit<64>)36w39523950860);  \
+    220 : apply_hll_correction((bit<64>)36w40712099919);  \
+    221 : apply_hll_correction((bit<64>)36w41967999066);  \
+    222 : apply_hll_correction((bit<64>)36w43297627260);  \
+    223 : apply_hll_correction((bit<64>)36w44707688171);  \
+    224 : apply_hll_correction((bit<64>)36w46205723418);  \
+    225 : apply_hll_correction((bit<64>)36w47800247716);  \
+    226 : apply_hll_correction((bit<64>)36w49500911066);  \
+    227 : apply_hll_correction((bit<64>)36w51318694488);  \
+    228 : apply_hll_correction((bit<64>)36w53266147710);  \
+    229 : apply_hll_correction((bit<64>)36w55357679661);  \
+    230 : apply_hll_correction((bit<64>)36w57609916019);  \
+    231 : apply_hll_correction((bit<64>)36w60042142555);  \
+    232 : apply_hll_correction((bit<64>)36w62676859321);  \
+    233 : apply_hll_correction((bit<64>)36w65540479405);  \
+    234 : apply_hll_correction((bit<64>)36w68664218264);  \
+    235 : apply_hll_correction((bit<64>)37w72085237137);  \
+    236 : apply_hll_correction((bit<64>)37w75848129496);  \
+    237 : apply_hll_correction((bit<64>)37w80006876896);  \
+    238 : apply_hll_correction((bit<64>)37w84627456776);  \
+    239 : apply_hll_correction((bit<64>)37w89791370660);  \
+    240 : apply_hll_correction((bit<64>)37w95600495433);  \
+    241 : apply_hll_correction((bit<64>)37w102183875131);  \
+    242 : apply_hll_correction((bit<64>)37w109707423494);  \
+    243 : apply_hll_correction((bit<64>)37w118388104620);  \
+    244 : apply_hll_correction((bit<64>)37w128515203951);  \
+    245 : apply_hll_correction((bit<64>)38w140483201606);  \
+    246 : apply_hll_correction((bit<64>)38w154844369728);  \
+    247 : apply_hll_correction((bit<64>)38w172396434715);  \
+    248 : apply_hll_correction((bit<64>)38w194335986128);  \
+    249 : apply_hll_correction((bit<64>)38w222543378956);  \
+    250 : apply_hll_correction((bit<64>)38w260152538135);  \
+    251 : apply_hll_correction((bit<64>)39w312804528502);  \
+    252 : apply_hll_correction((bit<64>)39w391781479663);  \
+    253 : apply_hll_correction((bit<64>)39w523408360620);  \
+    254 : apply_hll_correction((bit<64>)40w786660078253);  \
+    255 : apply_hll_correction((bit<64>)41w1576411166716); 

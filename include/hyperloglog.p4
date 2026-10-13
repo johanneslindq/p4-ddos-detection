@@ -1,4 +1,4 @@
-#include "hyperloglog_long_definitions.p4"
+#include "hll_256.p4"
 // Basic structure
 #define HYPERLOGLOG_NUM_BITS 5 // NOTE: If > 6, change difference calculation.
 #define HYPERLOGLOG_INDEX_BITS 8
@@ -7,7 +7,6 @@
 
 #define HYPERLOGLOG_WIDTH (1<<HYPERLOGLOG_INDEX_BITS)
 
-// TODO: Replace with more independent solution (or only count-min?).
 #define HYPERLOGLOG_HASHING_ALGORITHM HashAlgorithm.crc32
 #define HYPERLOGLOG_SEED 8w123
 
@@ -16,11 +15,30 @@
 //#define HYPERLOGLOG_SMALL_RANGE_CORRECTION_THRESHOLD 2473180435 // 1/(2.5 * 512 / (0.7213/(1 + 1.079/512) * 512**2)) << 24
 #define HYPERLOGLOG_SMALL_RANGE_CORRECTION_THRESHOLD 2467978252 // 1/(2.5 * 256 / (0.7213/(1 + 1.079/256) * 256**2)) << 25
 
+#define HLL_CORR_TABLE \
+table hll_correction_table { \
+key = { \
+    meta.number_of_empty_registers : exact; \
+} \
+actions = { \
+    apply_hll_correction; \
+    NoAction; \
+} \
+ \
+const default_action = apply_hll_correction((bit<64>)0);  \
+ \
+const entries = { \
+hll_hardcoded_else_if_corrections(meta.number_of_empty_registers, meta.hll_res) \
+} \
+}
+
 /*
 Create the HLL sketch.
 CAN ONLY MAKE ONE!!!!
 */
-#define create_hyperloglog register<bit<HYPERLOGLOG_NUM_BITS>>(HYPERLOGLOG_WIDTH) hll_register; 
+#define create_hyperloglog \
+register<bit<HYPERLOGLOG_NUM_BITS>>(HYPERLOGLOG_WIDTH) hll_register; \
+HLL_CORR_TABLE
 
 /*
 HyperLogLog hashing:
@@ -117,21 +135,21 @@ if (hll_value == 0) { \
 }
 
 
+
 /*
 Get the HLL value:
 */
-#define get_hll_value(hll_res) \
+#define get_hll_value \
 { \
 bit<HYPERLOGLOG_NUM_BITS> hll_value; \
 bit<64> hll_sum = 0; \
-bit<HYPERLOGLOG_INDEX_BITS> number_of_empty_registers = 0; \
-hll_add_bucket(hll_sum, number_of_empty_registers) \
+meta.number_of_empty_registers = 0; \
+hll_add_bucket(hll_sum, meta.number_of_empty_registers) \
 \
 if (hll_sum >= HYPERLOGLOG_SMALL_RANGE_CORRECTION_THRESHOLD) { \
-    if (number_of_empty_registers == 0) {hll_res = hll_sum;} \
-    hll_hardcoded_else_if_corrections(number_of_empty_registers, hll_res) \
-    else { hll_res = 0; } \
+    if (meta.number_of_empty_registers == 0) {meta.hll_res = hll_sum;} \
+    else { hll_correction_table.apply(); } \
 } else { \
-    hll_res = hll_sum; \
+    meta.hll_res = hll_sum; \
 } \
 }

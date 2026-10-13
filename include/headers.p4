@@ -63,7 +63,12 @@ header tcp_t{
     bit<16> urgentPtr;
 }
 
+
+
 struct metadata {
+    bool use_ipv6;
+    bit<64> hll_res;
+    bit<9> number_of_empty_registers;
 }
 
 struct headers {
