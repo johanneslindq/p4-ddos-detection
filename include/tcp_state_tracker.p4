@@ -12,7 +12,9 @@ struct metadata_state {
 }
 
 #define STATE_ELEMENT_BIT_SIZE 2
-#define STATE_NUMBER_ELEMENTS 32w1048575 // 2^20 -1
+#define STATE_NUMBER_ELEMENTS 32w1048576 // 2^20
+#define STATE_NUMBER_ELEMENTS_LIMIT 32w1048575 // 2^20 -1
+
 #define STATE_HASHING_ALGORITHM HashAlgorithm.crc32
 
 #define create_state_tracker \
@@ -20,7 +22,7 @@ register<bit<STATE_ELEMENT_BIT_SIZE>>(STATE_NUMBER_ELEMENTS) state_tracker;
 
 #define get_state_tracker_hash(state_hash_res) \
 hash(state_hash_res, STATE_HASHING_ALGORITHM, (bit<32>)0, \
-            {meta.serverIP,meta.serverPort,meta.clientIP,meta.clientPort, 8w120}, STATE_NUMBER_ELEMENTS); \
+            {meta.serverIP,meta.serverPort,meta.clientIP,meta.clientPort, 8w120}, STATE_NUMBER_ELEMENTS_LIMIT); \
 
 #define update_state_tracker(new_value, state_hash_res) \
 state_tracker.write(state_hash_res, new_value);
@@ -28,7 +30,7 @@ state_tracker.write(state_hash_res, new_value);
 #define update_state_tracker_new_hash(new_value) \
 bit<32> state_hash_res; \
 get_state_tracker_hash(state_hash_res) \
-state_tracker.write(hash_res, new_value);
+state_tracker.write(state_hash_res, new_value);
 
 #define read_state_tracker(output, state_hash_res) \
 state_tracker.read(output, state_hash_res); \

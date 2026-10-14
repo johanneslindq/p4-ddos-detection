@@ -28,6 +28,16 @@ seed - seed for the hash function
             {hdr.ipv4.srcAddr, seed}, (bit<P4LOGLOG_HASH_BITS>)-1); \
     }
 
+#define p4loglog_cardinality(pll_sum, pll_count) \
+pll_sum = pll_sum >> P4LOGLOG_INDEX_BITS; \
+pll_count = ((bit<32>)1 << (bit<8>)pll_sum); \
+pll_count = (P4LOGLOG_ALPHA * pll_count ) >> 10; 
+
+#define read_p4loglog(pll_count) \
+bit<32> pll_sum; \
+p4loglog_sum_reg.read(pll_sum, (bit<32>)0); \
+p4loglog_cardinality(pll_sum, pll_count)
+
 #define update_p4loglog(pll_count) \
 { \
     bit<P4LOGLOG_HASH_BITS> hash_res; \
@@ -72,12 +82,3 @@ seed - seed for the hash function
     } \
 }
 
-#define p4loglog_cardinality(pll_sum, pll_count) \
-pll_sum = pll_sum >> P4LOGLOG_INDEX_BITS; \
-pll_count = ((bit<32>)1 << (bit<8>)pll_sum); \
-pll_count = (P4LOGLOG_ALPHA * pll_count ) >> 10; \
-
-#define read_p4loglog(pll_count) \
-bit<32> pll_sum; \
-p4loglog_sum_reg.read(pll_sum, (bit<32>)0); \
-p4loglog_cardinality(pll_sum, pll_count)

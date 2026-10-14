@@ -43,7 +43,7 @@ register_id - count-min row
 */
 #define get_count_hash_agnostic(res, register_id) \
         hash(res, COUNT_MIN_HASHING_ALGORITHM##register_id, (count_min_bits_t)0, \
-            {meta.serverIP,meta.serverPort,meta.clientIP,meta.clientPort, COUNT_MIN_HASHING_SEED##register_id}, (count_min_bits_t)COUNT_MIN_WIDTH-1); \
+            {meta.serverIP,meta.serverPort,meta.clientIP,meta.clientPort, COUNT_MIN_HASHING_SEED##register_id}, (count_min_bits_t)COUNT_MIN_WIDTH-1); 
 
 /*
 Count-min update register:
