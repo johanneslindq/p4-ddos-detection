@@ -2,7 +2,7 @@
 #include <v1model.p4>
 #include "../../include/headers.p4"
 #include "../../include/countmin.p4"
-#include "../../include/tcp_state_tracker.p4"
+#include "../../include/tcp_state_tracker_dleft.p4"
 
 
 #define DIFF_THRESHOLD  500
@@ -69,7 +69,11 @@ control SYNControllerIngress(inout headers hdr, inout metadata_state meta, inout
         bool any_ip_valid = (hdr.ipv6.isValid() || hdr.ipv4.isValid());
 
         if (hdr.tcp.isValid() && any_ip_valid) {
-            bit<32> state_hash_res;
+            bit<32> dl_fx;
+            bit<32> dl_idx1;
+            bit<32> dl_idx2;
+            bit<STATE_FINGERPRINT_BITS> dl_rem1;
+            bit<STATE_FINGERPRINT_BITS> dl_rem2;
 
             // Extract packet type
             if(hdr.tcp.syn == 1 && hdr.tcp.ack == 1) meta.packet_type = 2;
@@ -109,11 +113,12 @@ control SYNControllerIngress(inout headers hdr, inout metadata_state meta, inout
                 }
             }
 
-            get_state_tracker_hash(state_hash_res)
-            read_state_tracker(meta.state_bits, state_hash_res) // Get register value
+            get_state_tracker_hash(dl_fx)
+            get_state_tracker_locations(dl_fx, dl_idx1, dl_rem1, dl_idx2, dl_rem2)
+            read_state_tracker(meta.state_bits, dl_idx1, dl_rem1, dl_idx2, dl_rem2)
 
             if(meta.packet_type == 2 && meta.state_bits == 1) {
-                update_state_tracker(2, state_hash_res)
+                update_state_tracker(2w2, dl_idx1, dl_rem1, dl_idx2, dl_rem2)
             }
 
             if(meta.packet_type == 1 || meta.packet_type == 3){
@@ -143,7 +148,7 @@ control SYNControllerIngress(inout headers hdr, inout metadata_state meta, inout
                 if(meta.packet_type == 1){
                     read_ack_cms
                     if(meta.state_bits == 0 || meta.state_bits == 3){
-                        update_state_tracker(1, state_hash_res)
+                        update_state_tracker(2w1, dl_idx1, dl_rem1, dl_idx2, dl_rem2)
                         update_syn_cms
                     } else{
                         read_syn_cms
@@ -151,7 +156,7 @@ control SYNControllerIngress(inout headers hdr, inout metadata_state meta, inout
                 } else{
                     read_syn_cms
                     if(meta.state_bits == 2){
-                        update_state_tracker(3, state_hash_res)
+                        update_state_tracker(2w3, dl_idx1, dl_rem1, dl_idx2, dl_rem2) 
                         update_ack_cms
                     } else{
                         read_ack_cms
