@@ -4,7 +4,17 @@
 #include "../../include/countmin.p4"
 #include "../../include/p4loglog.p4"
 
-#define UNIQUE_SOURCES_THRESHOLD  500
+// If threshold > 2.5*m, use: m * log2(T / (alpha_m * m)) where alpha_m = 0.397
+// Else: define SMALl_RANGE_CORRECTION and use: m * (1 - e^(-T/m))
+
+/* Threshold for 1000 */
+#define SMALL_RANGE_CORRECTION
+#define UNIQUE_SOURCES_THRESHOLD  638 //
+
+/* Threshold for 50000 */
+//#define UNIQUE_SOURCES_THRESHOLD 7109
+
+
 #define SYN_PER_DESTINATION_THRESHOLD  500
 
 #define ENABLE_LOGGING

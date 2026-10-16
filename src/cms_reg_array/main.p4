@@ -16,8 +16,6 @@ log_msg("The current SYN count for this destination is: {}\n", {syn_count}); \
 log_msg("-------------ACK COUNT-------------\n");\
 log_msg("The current ACK count for this destination is: {}\n", {ack_count}); \
 
-
-
 parser SYNParser(packet_in packet, out headers hdr, inout metadata_state meta, inout standard_metadata_t standard_metadata) {
     
     state start {
@@ -172,7 +170,6 @@ control SYNControllerIngress(inout headers hdr, inout metadata_state meta, inout
 }
 
 // Från Githubben:
-
 control MyVerifyChecksum(inout headers hdr, inout metadata_state meta) {
     apply {  }
 }
