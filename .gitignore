@@ -2,3 +2,4 @@
 *.pcap
 *.csv
 *.log
+tests/results/*
