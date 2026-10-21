@@ -60,7 +60,12 @@ parser SYNParser(packet_in packet, out headers hdr, inout metadata meta, inout s
 
 
 control SYNControllerIngress(inout headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
+    // Cumulative monitoring only: [0] completed ingress packets, [1] detections.
+    register<bit<32>>(2) benchmark_counts;
     action drop_packet() {
+        bit<32> detections;
+        benchmark_counts.read(detections, 1);
+        benchmark_counts.write(1, detections + 1);
         mark_to_drop(standard_metadata);
     }
 
@@ -90,7 +95,10 @@ control SYNControllerIngress(inout headers hdr, inout metadata meta, inout stand
                 #endif
                 drop_packet();
             }
-        } 
+        }
+        bit<32> processed;
+        benchmark_counts.read(processed, 0);
+        benchmark_counts.write(0, processed + 1);
     }
 }
 

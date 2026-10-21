@@ -5,7 +5,7 @@
 #include "../../include/tcp_state_tracker.p4"
 
 
-#define DIFF_THRESHOLD  500
+#define DIFF_THRESHOLD  50
 
 
 #define ENABLE_LOGGING
@@ -51,6 +51,8 @@ parser SYNParser(packet_in packet, out headers hdr, inout metadata_state meta, i
 
 
 control SYNControllerIngress(inout headers hdr, inout metadata_state meta, inout standard_metadata_t standard_metadata) {
+    // Cumulative monitoring only: [0] completed ingress packets, [1] detections.
+    register<bit<32>>(2) benchmark_counts;
     // Create the sketches
     create_count_min(1) 
     create_count_min(3)
@@ -59,6 +61,9 @@ control SYNControllerIngress(inout headers hdr, inout metadata_state meta, inout
     
 
     action drop_packet() {
+        bit<32> detections;
+        benchmark_counts.read(detections, 1);
+        benchmark_counts.write(1, detections + 1);
         mark_to_drop(standard_metadata);
     }
 
@@ -165,7 +170,10 @@ control SYNControllerIngress(inout headers hdr, inout metadata_state meta, inout
                     drop_packet();
                 }
             }
-        } 
+        }
+        bit<32> processed;
+        benchmark_counts.read(processed, 0);
+        benchmark_counts.write(0, processed + 1);
     }
 }
 
