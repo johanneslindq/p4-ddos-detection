@@ -1,7 +1,7 @@
 // Configuration
 #define COUNT_MIN_BITS 32
 #define COUNT_MIN_DIFF_BITS 33
-#define COUNT_MIN_WIDTH 128
+#define COUNT_MIN_WIDTH 1024
 
 
 // TODO: Replace with more independent solution.
